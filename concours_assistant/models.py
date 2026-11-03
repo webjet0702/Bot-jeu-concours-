@@ -43,6 +43,7 @@ class InfosExtraites:
     date_limite: date | None = None
     age_minimum: int | None = None
     autorisation_parentale: bool = False
+    pays_autorises: list[str] = field(default_factory=list)  # [] = non précisé
     url_reglement: str | None = None
     organisateur_identifie: bool = False
     depot_commissaire: bool = False

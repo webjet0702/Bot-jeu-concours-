@@ -72,3 +72,22 @@ def test_newsletter_extrait_les_liens_de_concours():
         <a href="https://m.fr/boutique">Boutique</a>""", subtype="html")
     liens = liens_depuis_email(msg)
     assert [c.url for c in liens] == ["https://m.fr/jeu-noel"]
+
+
+def test_alerte_google_deballe_les_liens_et_ignore_la_gestion():
+    from concours_assistant.sources.newsletter import deballer_lien
+    msg = EmailMessage()
+    msg["From"] = "Google Alerts <googlealerts-noreply@google.com>"
+    msg["Subject"] = "Alerte Google - jeu concours à gagner"
+    msg.set_content("texte")
+    msg.add_alternative("""
+      <a href="https://www.google.com/url?rct=j&sa=t&url=https://www.marque.fr/grand-jeu-noel&ct=ga&cd=x">
+         Grand jeu de Noël : une cuisine équipée à <b>gagner</b></a>
+      <a href="https://www.google.com/url?rct=j&url=https://blog.exemple.fr/article-voyage">Remportez un voyage</a>
+      <a href="https://www.google.com/alerts/feedback?ffu=x">Signaler comme non pertinent</a>
+      <a href="https://www.google.com/alerts/remove?s=x">Se désinscrire</a>
+      <a href="https://www.google.com/alerts?s=x">Voir toutes vos alertes</a>""", subtype="html")
+    liens = liens_depuis_email(msg)
+    assert [c.url for c in liens] == ["https://www.marque.fr/grand-jeu-noel", "https://blog.exemple.fr/article-voyage"]
+    assert all(c.source == "alerte_google" for c in liens)
+    assert deballer_lien("https://exemple.fr/url?url=https://x.fr") == "https://exemple.fr/url?url=https://x.fr"

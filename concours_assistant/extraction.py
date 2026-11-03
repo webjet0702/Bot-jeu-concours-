@@ -266,6 +266,56 @@ def extraire_age(texte: str) -> tuple[int | None, bool]:
     return (max(ages) if ages else None), bool(_AUTORISATION.search(texte))
 
 
+# ----------------------------------------------------------------------- pays
+
+MONDE = "MONDE"
+UE = "UE"
+PAYS_UE = {"FR", "BE", "LU", "DE", "ES", "IT", "NL", "PT", "AT", "IE", "PL", "SE", "DK", "FI", "GR", "CZ", "RO",
+           "HU", "SK", "SI", "HR", "BG", "LT", "LV", "EE", "CY", "MT"}
+_PAYS: dict[str, re.Pattern] = {code: re.compile(motif, re.I) for code, motif in {
+    "FR": r"\bfrance\b|m[ée]tropolitaine|\bcorse\b|french\s+residents?",
+    "BE": r"\bbelgique\b|\bbelgium\b",
+    "CH": r"\bsuisse\b|\bswitzerland\b",
+    "LU": r"\bluxembourg\b",
+    "MC": r"\bmonaco\b",
+    "CA": r"\bcanada\b|\bqu[ée]bec\b",
+    "US": r"[ée]tats[- ]unis|united\s+states|\busa\b|\bu\.s\.(?:a\.)?",
+    "GB": r"royaume[- ]uni|united\s+kingdom|\buk\b|grande[- ]bretagne",
+    "DE": r"\ballemagne\b|\bgermany\b",
+    "ES": r"\bespagne\b|\bspain\b",
+    "IT": r"\bitalie\b|\bitaly\b",
+    "NL": r"pays[- ]bas|netherlands",
+    "PT": r"\bportugal\b",
+}.items()}
+_ZONE_UE = re.compile(r"union\s+europ[ée]enne|european\s+union|\bu\.?e\.?\b(?!\w)|espace\s+[ée]conomique\s+europ", re.I)
+_ZONE_MONDE = re.compile(r"monde\s+entier|tous\s+(?:les\s+)?pays|worldwide|world\s*wide|international(?:ement)?\b|"
+                         r"open\s+to\s+(?:all|everyone)", re.I)
+_RESIDENCE = re.compile(r"r[ée]sid|domicili|resident|habitant|demeurant|living\s+in|ouvert\s+(?:à|aux)|open\s+to",
+                        re.I)
+# Phrases décrivant l'organisateur (siège social...) : elles ne disent rien des participants.
+_PHRASE_SOCIETE = re.compile(r"si[èe]ge|\bsas\b|\bsarl\b|\brcs\b|immatricul|capital|registered\s+office", re.I)
+
+
+def extraire_pays(texte: str) -> list[str]:
+    """Pays de résidence exigés des participants ([] = non précisé ; MONDE / UE = zones larges)."""
+    trouves: set[str] = set()
+    for phrase in _PHRASES.split(texte):
+        if not _RESIDENCE.search(phrase) or _PHRASE_SOCIETE.search(phrase):
+            continue
+        if _ZONE_MONDE.search(phrase):
+            trouves.add(MONDE)
+        if _ZONE_UE.search(phrase):
+            trouves.add(UE)
+        trouves.update(code for code, motif in _PAYS.items() if motif.search(phrase))
+    return sorted(trouves)
+
+
+def pays_compatible(pays_exiges: list[str], pays: str) -> bool:
+    if not pays_exiges or MONDE in pays_exiges or pays in pays_exiges:
+        return True
+    return UE in pays_exiges and pays in PAYS_UE
+
+
 # ------------------------------------------------------------------- signaux
 
 _PHRASES = re.compile(r"(?<=[.!?;])\s+|\n+")
@@ -339,6 +389,7 @@ def extraire_infos(texte_complet: str, texte_conditions: str, aujourd_hui: date,
     `texte_conditions` : page + règlement (pour les signaux juridiques)."""
     principal, total, estimee = extraire_valeurs(texte_complet)
     age, autorisation = extraire_age(texte_conditions or texte_complet)
+    pays = extraire_pays(texte_conditions or texte_complet)
     interdiction = detecter_interdiction_automatisation(texte_conditions)
     return InfosExtraites(
         gain_principal_eur=principal,
@@ -347,6 +398,7 @@ def extraire_infos(texte_complet: str, texte_conditions: str, aujourd_hui: date,
         date_limite=extraire_date_limite(texte_complet, aujourd_hui),
         age_minimum=age,
         autorisation_parentale=autorisation,
+        pays_autorises=pays,
         url_reglement=url_reglement,
         organisateur_identifie=bool(_ORGANISATEUR.search(texte_conditions)),
         depot_commissaire=bool(_COMMISSAIRE.search(texte_conditions)),

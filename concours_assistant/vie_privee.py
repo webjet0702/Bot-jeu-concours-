@@ -42,7 +42,8 @@ def texte_consentement(cfg: Config) -> str:
 def exporter(depot: Depot, cfg: Config, chemin: Path) -> Path:
     donnees = {
         "genere_le": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "profil": cfg.profil.champs_transmissibles() | {"age": cfg.profil.age},
+        "profil": cfg.profil.champs_transmissibles()
+        | {"age": cfg.profil.age, "pays_residence": cfg.profil.pays_residence},
         **depot.tout_exporter(),
         "preuves": sorted(str(p) for p in cfg.dossier_preuves.glob("*")) if cfg.dossier_preuves.exists() else [],
     }

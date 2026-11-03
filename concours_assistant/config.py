@@ -27,6 +27,7 @@ class Profil:
     telephone: str = ""
     date_naissance: str = ""
     age: int | None = None
+    pays_residence: str = "FR"  # code ISO à 2 lettres, sert uniquement au filtrage
 
     def champs_transmissibles(self) -> dict[str, str]:
         """Uniquement les champs explicitement renseignés (minimisation)."""
@@ -150,6 +151,9 @@ def valider(cfg: Config) -> None:
             raise ErreurConfig("date_naissance doit être au format AAAA-MM-JJ") from e
     if p.email and "@" not in p.email:
         raise ErreurConfig("email invalide")
+    p.pays_residence = p.pays_residence.strip().upper()
+    if len(p.pays_residence) != 2 or not p.pays_residence.isalpha():
+        raise ErreurConfig("pays_residence doit être un code pays à 2 lettres (ex. FR, BE, CH)")
 
 
 def charger_config(chemin: str | Path) -> Config:

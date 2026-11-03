@@ -8,6 +8,7 @@ from datetime import date
 
 from .config import Filtres, Profil
 from .db import Depot
+from .extraction import pays_compatible
 from .models import Contexte, Decision, InfosExtraites, Mode, Statut
 from .urls import domaine
 
@@ -69,6 +70,13 @@ def evaluer(infos: InfosExtraites, ctx: Contexte, profil: Profil, filtres: Filtr
                               "participez uniquement avec cette autorisation écrite")
             else:
                 exclusions.append(f"réservé aux {infos.age_minimum} ans et plus (vous avez {age} ans)")
+
+    # --- Pays de résidence
+    if not pays_compatible(infos.pays_autorises, profil.pays_residence):
+        exclusions.append(f"réservé aux résidents de : {', '.join(infos.pays_autorises)} "
+                          f"(vous : {profil.pays_residence})")
+    elif not infos.pays_autorises and ctx.reglement_lu:
+        avert.append("pays de résidence exigé non trouvé : vérifiez que le concours est ouvert à votre pays")
 
     # --- Arnaque / achat
     for s in infos.signaux_arnaque:

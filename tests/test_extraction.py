@@ -100,3 +100,20 @@ def test_liens_reglement_et_participation():
     assert lien_participation(html, "https://agreg.fr/article") == "https://marque.fr/jeu"
     assert lien_participation('<a class="go" href="https://x.fr/j">Go</a>', "https://agreg.fr/a", "a.go") == \
         "https://x.fr/j"
+
+
+def test_pays_de_residence():
+    from concours_assistant.extraction import extraire_pays, pays_compatible
+    assert extraire_pays("Jeu ouvert à toute personne majeure résidant en France métropolitaine (Corse comprise).") \
+        == ["FR"]
+    assert extraire_pays("Open to legal residents of the United States, 18 or older.") == ["US"]
+    assert extraire_pays("Réservé aux personnes domiciliées en France ou en Belgique.") == ["BE", "FR"]
+    assert extraire_pays("Ouvert aux résidents de l'Union européenne.") == ["UE"]
+    assert extraire_pays("Giveaway open worldwide to residents of any country.") == ["MONDE"]
+    # La phrase sur le siège social de l'organisateur ne restreint pas les participants.
+    assert extraire_pays("Société X SAS, dont le siège est situé en Belgique, RCS 123 456 789.") == []
+    # « sa résidence » ne doit pas faire ignorer la phrase.
+    assert extraire_pays("Toute personne ayant sa résidence principale en Suisse.") == ["CH"]
+    assert pays_compatible(["FR", "BE"], "FR") and not pays_compatible(["US"], "FR")
+    assert pays_compatible(["UE"], "FR") and not pays_compatible(["UE"], "CH")
+    assert pays_compatible(["MONDE"], "FR") and pays_compatible([], "FR")

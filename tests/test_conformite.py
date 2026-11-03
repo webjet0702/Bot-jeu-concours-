@@ -106,3 +106,11 @@ def test_checklist_ok(depot):
                         url_participation="https://m.fr/jeu", date_limite="2026-12-01")
     points = checklist_avant_inscription(depot.obtenir(cid), Profil(email="a@b.fr"), FILTRES, depot, AUJ, "1.0")
     assert not [p for p in points if p.ok is False]
+
+
+def test_pays_de_residence_incompatible():
+    d = evaluer(infos(pays_autorises=["US"]), ctx(), Profil(age=20), FILTRES, AUJ)
+    assert d.statut == Statut.EXCLU and "US" in d.motifs[0]
+    assert evaluer(infos(pays_autorises=["FR"]), ctx(), Profil(age=20), FILTRES, AUJ).statut == Statut.PRET
+    assert evaluer(infos(pays_autorises=["UE"]), ctx(), Profil(age=20, pays_residence="BE"), FILTRES, AUJ).statut \
+        == Statut.PRET

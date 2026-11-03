@@ -17,6 +17,10 @@ email = ""
 # Beaucoup de concours sont réservés aux majeurs.
 age = 0
 
+# Pays de résidence (code à 2 lettres) : sert UNIQUEMENT à écarter les concours
+# réservés à d'autres pays (ex. « réservé aux résidents des États-Unis »).
+pays_residence = "FR"
+
 [filtres]
 # Seuil minimal : 100 € (une valeur inférieure est refusée au chargement).
 valeur_minimale_eur = 100

@@ -8,7 +8,7 @@ l'humain qui envoie**.
 
 ```mermaid
 flowchart TD
-    A["Sources<br/>RSS · newsletters (IMAP lecture seule) · allowlist"] --> B["Collecte + dédoublonnage"]
+    A["Sources<br/>Google Alertes + newsletters (IMAP lecture seule) · RSS · allowlist"] --> B["Collecte + dédoublonnage"]
     B --> C{"Pré-filtre sur le texte de la source<br/>gain &lt; 100 € · expiré · arnaque ?"}
     C -- oui --> X["EXCLU"]
     C -- non --> D["Récupération polie<br/>robots.txt · délai/domaine · quotas"]
@@ -34,7 +34,7 @@ flowchart TD
 | Module | Rôle |
 |---|---|
 | `sources/rss.py` | Lit les flux RSS/Atom via le client poli. |
-| `sources/newsletter.py` | Lit un dossier IMAP en **lecture seule** (`BODY.PEEK`) et extrait les liens de concours. |
+| `sources/newsletter.py` | Lit un dossier IMAP en **lecture seule** (`BODY.PEEK`) : Google Alertes (liens de redirection déballés) et newsletters. |
 | `sources/allowlist.py` | URLs ajoutées à la main. |
 | `http_poli.py` | Seule porte de sortie réseau : robots.txt, délais, quotas, arrêt sur défi, blocage de domaine. |
 | `detection.py` | Reconnaît les CAPTCHA et pages de challenge **pour s'arrêter**, jamais pour les traiter. |
@@ -58,7 +58,7 @@ flowchart TD
 | PDF (règlements) | `pypdf` | Beaucoup de règlements sont en PDF. |
 | Navigateur | **Playwright**, `headless=False` en dur | Attente automatique des éléments, inspection des iframes. Selenium convient aussi, avec les mêmes règles : mode visible, aucune option furtive, aucun clic d'envoi. |
 | Stockage | SQLite | Local, un seul fichier, facile à purger/exporter. |
-| Tests | `pytest` | 83 tests, sans réseau. |
+| Tests | `pytest` | 86 tests, sans réseau. |
 
 **Bannis volontairement** : `undetected-chromedriver`, `playwright-stealth`,
 `puppeteer-extra-plugin-stealth`, rotation de proxies, faux User-Agent, modification de

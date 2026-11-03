@@ -47,13 +47,54 @@ concours voir 12              # détail, motifs, clause anti-automatisation éve
 concours participer 12        # checklist -> pré-remplissage ou mode manuel -> VOUS validez
 ```
 
+## Surveiller tout le web avec Google Alertes
+
+L'outil n'explore **pas** le web lui-même : à cette échelle c'est impossible (des
+milliards de pages), les sites le bloqueraient, et ce serait du scraping massif. Google
+a déjà tout exploré : on lui demande de **nous envoyer par email** les nouvelles pages de
+concours, et l'outil lit ces emails (IMAP, lecture seule).
+
+1. Connecté avec ton adresse Gmail **dédiée**, va sur <https://www.google.com/alerts>.
+2. Crée une alerte par requête, par exemple :
+   - `"jeu concours" "à gagner" "d'une valeur de"`
+   - `"règlement du jeu" "commissaire de justice"`
+   - `"jeu gratuit sans obligation d'achat"`
+   - `"tirage au sort" "gagnez" "valeur commerciale"`
+
+   Options : *Fréquence* « une fois par jour au maximum », *Langue* Français,
+   *Région* France, *Nombre* « tous les résultats », *Envoyer à* ton adresse dédiée.
+3. Dans Gmail, crée un filtre : *De* `googlealerts-noreply@google.com` → *Appliquer le libellé* `Concours`.
+4. Active la validation en deux étapes du compte, puis crée un **mot de passe
+   d'application** (Compte Google → Sécurité). Vérifie que l'IMAP est activé
+   (Gmail → Paramètres → Transfert et POP/IMAP).
+5. Dans `config.toml` :
+   ```toml
+   [collecte.newsletter]
+   active = true
+   utilisateur = "ton.adresse.concours@gmail.com"
+   dossier = "Concours"
+   ```
+6. Avant `concours collecter`, donne le mot de passe d'application via une variable
+   d'environnement (jamais dans un fichier) :
+   - Windows (PowerShell) : `$env:CONCOURS_IMAP_MDP = "xxxx xxxx xxxx xxxx"`
+   - Mac / Linux : `export CONCOURS_IMAP_MDP="xxxx xxxx xxxx xxxx"`
+
+Les liens des alertes sont « déballés » (on garde la vraie page, pas la redirection
+Google) puis analysés comme les autres. Tu peux aussi mettre dans le libellé `Concours`
+les newsletters de marques et de sites de concours auxquelles tu es abonné.
+
+**Concours d'autres pays** : grâce à `pays_residence` (FR par défaut), un concours dont le
+règlement est réservé aux résidents d'autres pays (« US residents only », « résidents
+belges »…) est écarté automatiquement. Les gains en $ ou £ ne sont pas convertis : ces
+concours passent « à vérifier ».
+
 ## Toutes les commandes
 
 | Commande | Rôle |
 |---|---|
 | `init` | Configuration, base, consentement |
 | `consentement [--retirer]` | Donner / retirer son consentement |
-| `collecter` | RSS + newsletters (IMAP lecture seule) + allowlist |
+| `collecter` | RSS + Google Alertes et newsletters (IMAP lecture seule) + allowlist |
 | `analyser [--limite N] [--id ID…] [--reessayer]` | Analyse polie des nouveaux concours |
 | `lister [--statut …] [--tous]` | Tableau des concours |
 | `voir ID` | Détails |

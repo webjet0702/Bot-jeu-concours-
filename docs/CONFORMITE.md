@@ -50,24 +50,25 @@ Exécutée par `concours participer ID`. Un seul ✗ bloque l'inscription.
 6. Page en HTTP (non chiffrée).
 7. Page introuvable (404/410).
 8. Doublon d'un concours déjà connu.
+9. Concours réservé aux résidents d'autres pays que le vôtre (`pays_residence`).
 
 **Pas d'automatisation, vérification humaine (statut `a_verifier` ou `intervention_humaine`)**
 
-9. Défi anti-robot, CAPTCHA d'accès, page « vérifiez que vous êtes humain ».
-10. HTTP 401/403, ou domaine bloqué après un défi précédent.
-11. HTTP 429 : pause, réessai plus tard.
-12. robots.txt interdit l'URL, ou robots.txt injoignable.
-13. Concours sur réseau social (Instagram, Facebook, TikTok, X, YouTube, etc.).
-14. Valeur du gain introuvable.
-15. Règlement introuvable.
-16. Âge inconnu alors qu'un âge minimum est exigé, ou autorisation parentale nécessaire.
+10. Défi anti-robot, CAPTCHA d'accès, page « vérifiez que vous êtes humain ».
+11. HTTP 401/403, ou domaine bloqué après un défi précédent.
+12. HTTP 429 : pause, réessai plus tard.
+13. robots.txt interdit l'URL, ou robots.txt injoignable.
+14. Concours sur réseau social (Instagram, Facebook, TikTok, X, YouTube, etc.).
+15. Valeur du gain introuvable (y compris les montants en $ ou £, non convertis).
+16. Règlement introuvable.
+17. Âge inconnu alors qu'un âge minimum est exigé, ou autorisation parentale nécessaire.
 
 **Mode manuel imposé (l'outil ouvre le lien, vous faites tout)**
 
-17. Le règlement interdit les moyens automatisés (cas le plus fréquent).
-18. Un CAPTCHA est présent dans le formulaire.
-19. Le domaine n'a pas été autorisé par vous après lecture de ses CGU.
-20. Aucun écran disponible (le navigateur doit être visible).
+18. Le règlement interdit les moyens automatisés (cas le plus fréquent).
+19. Un CAPTCHA est présent dans le formulaire.
+20. Le domaine n'a pas été autorisé par vous après lecture de ses CGU.
+21. Aucun écran disponible (le navigateur doit être visible).
 
 ## 4. RGPD
 
