@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "concours-assistant"
+version = "0.1.0"
+description = "Assistant semi-automatique et conforme pour participer à des jeux-concours (gain >= 100 €), avec validation humaine obligatoire."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "feedparser>=6.0",
+    "pypdf>=4.0",
+    "playwright>=1.44",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+concours = "concours_assistant.cli:main"
+
+[tool.setuptools]
+packages = ["concours_assistant", "concours_assistant.sources"]
+
+[tool.setuptools.package-data]
+concours_assistant = ["schema.sql", "config_modele.toml"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

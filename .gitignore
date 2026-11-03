@@ -1,0 +1,16 @@
+# Données personnelles : ne JAMAIS les versionner
+config.toml
+allowlist.txt
+donnees/
+*.sqlite3
+*.png
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/

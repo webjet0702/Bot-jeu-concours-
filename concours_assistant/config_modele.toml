@@ -1,0 +1,62 @@
+# Configuration de l'assistant jeux-concours.
+# Ce fichier contient des données personnelles : il est exclu de git (.gitignore).
+
+[profil]
+# MINIMISATION : seuls les champs renseignés ici pourront être pré-remplis.
+# Conseil : utilisez une adresse DÉDIÉE aux concours (vos données seront souvent
+# partagées avec des « partenaires » de l'organisateur).
+email = ""
+# prenom = ""
+# nom = ""
+# code_postal = ""
+# ville = ""
+# telephone = ""
+# date_naissance = "AAAA-MM-JJ"   # pré-remplie seulement si un champ la demande
+
+# Votre âge : sert UNIQUEMENT à filtrer les concours (jamais envoyé).
+# Beaucoup de concours sont réservés aux majeurs.
+age = 0
+
+[filtres]
+# Seuil minimal : 100 € (une valeur inférieure est refusée au chargement).
+valeur_minimale_eur = 100
+# "lot_principal" : le meilleur lot doit valoir >= seuil (recommandé)
+# "dotation_totale" : la somme de tous les lots doit valoir >= seuil
+critere_valeur = "lot_principal"
+# Exclure les concours qui se terminent dans moins de N jours.
+jours_restants_minimum = 0
+
+[collecte]
+# Fichier d'URL ajoutées à la main (une par ligne, format : URL | nom facultatif).
+fichier_allowlist = "allowlist.txt"
+
+# Flux RSS. N'ajoutez que des flux publics dont les conditions d'utilisation
+# autorisent la lecture automatisée. robots.txt est vérifié avant chaque requête.
+# [[collecte.flux]]
+# nom = "Mon agrégateur"
+# url = "https://exemple.fr/feed/"
+# # Si les articles du flux renvoient vers la vraie page du concours :
+# lien_sortant_css = "a.bouton-participer"
+
+[collecte.newsletter]
+# Lecture SEULE (IMAP, rien n'est modifié) des newsletters de concours rangées
+# dans un dossier/libellé. Mot de passe d'application dans la variable
+# d'environnement CONCOURS_IMAP_MDP (jamais dans ce fichier).
+active = false
+serveur_imap = "imap.gmail.com"
+utilisateur = ""
+dossier = "Concours"
+jours = 7
+
+[reseau]
+# User-Agent honnête : il identifie l'outil, il n'imite PAS un navigateur.
+user_agent = "ConcoursAssistant/0.1 (assistant personnel; usage non commercial)"
+delai_min_par_domaine_s = 10      # minimum imposé : 5 s
+requetes_max_par_execution = 150
+requetes_max_par_domaine = 15
+timeout_s = 20
+tentatives_max = 2                # uniquement pour les erreurs réseau / 5xx
+
+[vie_privee]
+retention_jours = 180
+dossier_donnees = "donnees"
