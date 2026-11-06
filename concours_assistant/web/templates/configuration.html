@@ -50,7 +50,7 @@
       <label>Adresse Gmail<input type="email" name="newsletter_utilisateur" value="{{ cfg.collecte.newsletter.utilisateur }}"></label>
       <label>Libellé Gmail<input type="text" name="newsletter_dossier" value="{{ cfg.collecte.newsletter.dossier }}"></label>
     </div>
-    <p class="discret petit">Le mot de passe d'application n'est jamais enregistré : il est demandé à chaque recherche.</p>
+    <p class="discret petit">Le mot de passe d'application n'est jamais enregistré ici : il est demandé à chaque recherche, sauf s'il est dans la variable d'environnement <code>CONCOURS_IMAP_MDP</code> (en ligne : réglages Vercel, nécessaire pour le robot quotidien).</p>
   </section>
   <button class="bouton bouton-principal">Enregistrer</button>
 </form>
