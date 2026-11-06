@@ -64,6 +64,9 @@ doit passer par personne d'autre) :
    ```
    postgresql://concours_app.REF:TON_MOT_DE_PASSE@aws-0-eu-west-3.pooler.supabase.com:6543/postgres?sslmode=require postgresql://concours_app.REF:TON_MOT_DE_PASSE@aws-1-eu-west-3.pooler.supabase.com:6543/postgres?sslmode=require
    ```
+   Les deux adresses sont essayées dans l'ordre. Le bon serveur (`aws-0` ou `aws-1`) dépend du
+   projet Supabase : celui qui répond « tenant/user not found » n'est pas le bon. Pour le projet
+   `bot-jeu-concours`, c'est `aws-1`, et une seule adresse suffit.
    *Facultatif* : ajoute aussi `CRON_SECRET` (n'importe quelle longue phrase) pour activer le
    **robot quotidien**, qui cherche et analyse tout seul chaque matin.
 3. Dans Vercel → **Deployments** → dernier déploiement → **⋯ → Redeploy**.
@@ -150,10 +153,20 @@ concours, et l'outil lit ces emails (IMAP, lecture seule).
    utilisateur = "ton.adresse.concours@gmail.com"
    dossier = "Concours"
    ```
-6. Avant `concours collecter`, donne le mot de passe d'application via une variable
-   d'environnement (jamais dans un fichier) :
-   - Windows (PowerShell) : `$env:CONCOURS_IMAP_MDP = "xxxx xxxx xxxx xxxx"`
-   - Mac / Linux : `export CONCOURS_IMAP_MDP="xxxx xxxx xxxx xxxx"`
+6. Donne le mot de passe d'application via une variable d'environnement (jamais dans un
+   fichier) :
+   - **Site en ligne** : Vercel → projet → Settings → Environment Variables →
+     `CONCOURS_IMAP_MDP` (Production, *Sensitive*), puis redéploie. Dans « Mon profil », coche
+     « Lire mes Google Alertes » et mets l'adresse Gmail dédiée.
+   - PC, Windows (PowerShell) : `$env:CONCOURS_IMAP_MDP = "xxxx xxxx xxxx xxxx"`
+   - PC, Mac / Linux : `export CONCOURS_IMAP_MDP="xxxx xxxx xxxx xxxx"`
+
+Pourquoi pas les sites agrégateurs de concours ? Vérifié en novembre 2026 : Toutgagner,
+Jeu-concours.biz, Concours du Net et Gagnant.fr n'ont **pas de flux RSS**, et Jeu-concours.biz
+interdit ses pages de concours aux robots (robots.txt). Aspirer leurs pages irait contre leurs
+conditions : l'outil ne le fait pas. Le flux RSS de Google Alertes n'est pas utilisable non
+plus, car le robots.txt de Google interdit `/alerts/`. La réception **par email** reste donc la
+bonne méthode.
 
 Les liens des alertes sont « déballés » (on garde la vraie page, pas la redirection
 Google) puis analysés comme les autres. Tu peux aussi mettre dans le libellé `Concours`
