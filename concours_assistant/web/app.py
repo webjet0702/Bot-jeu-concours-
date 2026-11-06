@@ -33,6 +33,7 @@ from flask import Flask, abort, flash, g, jsonify, redirect, render_template, re
 from .. import services
 from ..config import Config, ErreurConfig
 from ..conformite import checklist_avant_inscription
+from ..db import Depot
 from ..environnement import SourceConfig, en_ligne, ouvrir_depot
 from ..journal import Journal
 from ..models import Mode, Statut
@@ -166,10 +167,15 @@ def creer_app(chemin_config: Path | None) -> Flask:
     ligne = en_ligne()
     source = SourceConfig(chemin_config)
     app = Flask(__name__)
-    cle = os.environ.get("CONCOURS_SECRET_KEY")
-    if ligne and not cle:
-        raise RuntimeError("CONCOURS_SECRET_KEY est obligatoire pour la version en ligne")
-    app.secret_key = cle or secrets.token_hex(32)
+    if ligne:  # même clé pour toutes les instances du serveur : variable d'environnement ou base
+        from ..environnement import url_base
+        depot = Depot(url_base())
+        try:
+            app.secret_key = auth.cle_session(depot)
+        finally:
+            depot.fermer()
+    else:
+        app.secret_key = os.environ.get("CONCOURS_SECRET_KEY") or secrets.token_hex(32)
     app.config.update(MAX_CONTENT_LENGTH=1_000_000, SESSION_COOKIE_HTTPONLY=True, SESSION_COOKIE_SAMESITE="Lax",
                       SESSION_COOKIE_SECURE=ligne, PERMANENT_SESSION_LIFETIME=timedelta(days=30))
     participations: dict[int, Participation] = {}  # local uniquement (navigateur visible sur ton PC)

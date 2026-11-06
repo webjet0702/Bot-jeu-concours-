@@ -251,7 +251,7 @@ def test_en_ligne_connexion_obligatoire(site_en_ligne):
     assert client.get("/").headers["Location"].endswith("/connexion")
     assert client.post("/api/analyser", headers={"X-Jeton": JETON}).status_code == 401
     assert client.get("/profil").headers["Location"].endswith("/connexion")
-    assert "code d'installation" in client.get("/connexion").get_data(as_text=True)
+    assert "mot de passe de la base" in client.get("/connexion").get_data(as_text=True)
 
 
 @en_ligne_seulement
@@ -334,3 +334,23 @@ def test_en_ligne_effacer_garde_le_mot_de_passe(site_en_ligne):
     d = Depot(URL_PG_TEST)
     assert d.lister() == [] and not d.consentement_actif() and d.lire_parametre("mot_de_passe")
     d.fermer()
+
+
+@en_ligne_seulement
+def test_en_ligne_un_seul_secret(monkeypatch):
+    """Sans variable dédiée : code d'installation = mot de passe de la base, clé de session gardée en base."""
+    depot_postgres_vierge().fermer()
+    monkeypatch.setenv("CONCOURS_DATABASE_URL", URL_PG_TEST)
+    for var in ("CONCOURS_SECRET_KEY", "CONCOURS_CODE_INSTALLATION", "CRON_SECRET"):
+        monkeypatch.delenv(var, raising=False)
+    instance_1, instance_2 = creer_app(None), creer_app(None)
+    assert instance_1.secret_key == instance_2.secret_key  # une session reste valide d'un serveur à l'autre
+    client = _client(instance_1)
+    mdp_base = URL_PG_TEST.split("://", 1)[1].split("@", 1)[0].split(":", 1)[1]
+    client.post("/connexion", data={"jeton": JETON, "code": "mauvais", "mot_de_passe": "x" * 12,
+                                    "confirmation": "x" * 12})
+    client.post("/connexion", data={"jeton": JETON, "code": mdp_base, "mot_de_passe": "mot-de-passe-site",
+                                    "confirmation": "mot-de-passe-site"})
+    client2 = _reconnecter(instance_2, "mot-de-passe-site")
+    assert client2.get("/").headers["Location"].endswith("/consentement")  # connecté via l'autre instance
+    assert _client(instance_1).get("/api/robot").status_code == 401  # robot désactivé sans CRON_SECRET

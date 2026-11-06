@@ -7,13 +7,13 @@
   {% if premiere %}
     <h1>Bienvenue !</h1>
     {% if not code_requis %}
-      <p class="alerte alerte-danger">Installation incomplète : la variable CONCOURS_CODE_INSTALLATION n'est pas définie sur le serveur.</p>
+      <p class="alerte alerte-danger">Installation incomplète : l'adresse de la base (CONCOURS_DATABASE_URL) ne contient pas de mot de passe.</p>
     {% else %}
-      <p class="discret">Première visite : choisis ton mot de passe. Il te faut le <strong>code d'installation</strong> qu'on t'a donné.</p>
+      <p class="discret">Première visite : pour prouver que c'est bien toi, entre le <strong>mot de passe de la base</strong> que tu as choisi dans Supabase. Ensuite, choisis le mot de passe du site (différent, plus facile à retenir).</p>
       <form method="post" class="pile">
         {{ jeton_champ() }}
-        <label>Code d'installation<input type="text" name="code" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>
-        <label>Ton mot de passe <span class="discret">(10 caractères min.)</span><input type="password" name="mot_de_passe" required minlength="10" autocomplete="new-password"></label>
+        <label>Mot de passe de la base (Supabase)<input type="password" name="code" required autocomplete="off" autocapitalize="none" spellcheck="false"></label>
+        <label>Mot de passe du site <span class="discret">(10 caractères min.)</span><input type="password" name="mot_de_passe" required minlength="10" autocomplete="new-password"></label>
         <label>Confirmation<input type="password" name="confirmation" required minlength="10" autocomplete="new-password"></label>
         <button class="bouton bouton-principal bouton-large">Créer mon mot de passe</button>
       </form>

@@ -238,6 +238,13 @@ class Depot:
                 (cle, valeur, maintenant()))
         self._valider()
 
+    def ecrire_parametre_si_absent(self, cle: str, valeur: str) -> str:
+        """Écrit seulement si la clé n'existe pas encore, puis renvoie la valeur en place (sûr entre instances)."""
+        self._x("INSERT INTO parametres (cle, valeur, maj_le) VALUES (?,?,?) ON CONFLICT (cle) DO NOTHING",
+                (cle, valeur, maintenant()))
+        self._valider()
+        return self.lire_parametre(cle)
+
     def prendre_verrou(self, nom: str, duree_s: int) -> bool:
         """Verrou atomique (évite deux analyses en même temps, ex. double clic ou robot + toi)."""
         maintenant_iso = maintenant()

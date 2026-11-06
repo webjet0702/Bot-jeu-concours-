@@ -37,8 +37,27 @@ def verifier(mot_de_passe: str, stocke: str) -> bool:
         return False
 
 
+CLE_SESSION = "cle_session"
+
+
 def code_installation() -> str | None:
-    return (os.environ.get("CONCOURS_CODE_INSTALLATION") or "").strip() or None
+    """Preuve que c'est bien toi qui installes : une variable dédiée, sinon le mot de passe de la base
+    (que toi seul as choisi dans Supabase et mis dans Vercel)."""
+    dedie = (os.environ.get("CONCOURS_CODE_INSTALLATION") or "").strip()
+    if dedie:
+        return dedie
+    from urllib.parse import unquote, urlsplit
+
+    from ..environnement import url_base
+    url = url_base()
+    mot = urlsplit(url.split()[0]).password if url else None
+    return unquote(mot) if mot else None
+
+
+def cle_session(depot: Depot) -> str:
+    """Clé de signature des sessions : variable d'environnement, sinon générée une fois et gardée en base."""
+    return (os.environ.get("CONCOURS_SECRET_KEY") or "").strip() or \
+        depot.ecrire_parametre_si_absent(CLE_SESSION, secrets.token_urlsafe(48))
 
 
 def mot_de_passe_defini(depot: Depot) -> bool:
