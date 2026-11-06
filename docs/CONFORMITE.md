@@ -72,8 +72,10 @@ Exécutée par `concours participer ID`. Un seul ✗ bloque l'inscription.
 
 ## 4. RGPD
 
-- **Cadre** : l'outil est un usage personnel, les données restent sur votre ordinateur
-  (exemption « domestique », art. 2.2.c du RGPD). Il applique malgré tout les bonnes
+- **Cadre** : l'outil est un usage personnel ; sur PC, les données restent sur votre ordinateur
+  (exemption « domestique », art. 2.2.c du RGPD). En ligne, elles sont dans **votre** base
+  Supabase (UE, Paris), servie par **votre** projet Vercel : ce sont des sous-traitants
+  techniques, et le texte de consentement le précise. Il applique malgré tout les bonnes
   pratiques ci-dessous. Dès que vous cliquez « Valider », c'est **l'organisateur** qui
   devient responsable du traitement de vos données.
 - **Consentement** : demandé à `concours init`, versionné, retirable

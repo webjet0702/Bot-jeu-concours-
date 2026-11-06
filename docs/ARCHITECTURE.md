@@ -158,3 +158,31 @@ Et à l'inscription : la checklist refuse tout concours déjà `inscrit`.
 - Seuls les champs `input`/`textarea` sont pré-remplis ; les listes déroulantes et les champs ambigus (« Nom et prénom ») sont laissés à l'humain.
 - Les iframes de plateformes tierces ne sont pré-remplies que si leur domaine est lui aussi autorisé.
 - Les concours sur réseaux sociaux ne sont jamais automatisés (leurs CGU l'interdisent).
+
+## 8. Version en ligne (Vercel + Supabase)
+
+```mermaid
+flowchart LR
+    T["Ton téléphone / n'importe quel navigateur"] -- "HTTPS + mot de passe" --> V["Vercel (Paris)<br/>même application Flask"]
+    C["Vercel Cron (1×/jour, CRON_SECRET)"] --> V
+    V -- "rôle concours_app<br/>(droits minimaux)" --> S["Supabase PostgreSQL (Paris)<br/>schéma « concours » non exposé"]
+    V -- "requêtes polies<br/>(robots.txt, 10 s/site)" --> W["Sites de concours"]
+    V -. "lecture seule IMAP" .-> G["Gmail : Google Alertes"]
+```
+
+- **Même code** que la version PC : `environnement.py` choisit SQLite + `config.toml` (PC) ou
+  PostgreSQL + configuration en base (`CONCOURS_DATABASE_URL` définie).
+- **Sans état en mémoire** (fonctions serverless) : jeton anti-CSRF et checklist validée en
+  session signée ; dernier accès par site et cache robots.txt (24 h) en base ; la recherche
+  avance par tranches de 25 s que la page enchaîne ; verrou en base contre deux analyses
+  simultanées.
+- **Sécurité** : connexion obligatoire (PBKDF2-SHA256, blocage progressif après 5 échecs) ;
+  première connexion prouvée par le mot de passe de la base ; clé de session générée et
+  gardée en base ; cookies `Secure`/`HttpOnly`/`SameSite=Lax` ; le rôle `concours_app` n'a que
+  SELECT/INSERT/UPDATE/DELETE sur le schéma `concours` (ni `anon` ni `authenticated` n'y ont
+  accès) ; son mot de passe n'est transmis à Supabase que sous forme d'empreinte SCRAM.
+- **Jamais de navigateur automatisé en ligne** : les participations se font en mode manuel sur
+  ton appareil. Le pré-remplissage reste réservé à la version PC.
+- **Limites** : l'offre gratuite de Vercel limite la durée d'une requête et ne lance le robot
+  qu'une fois par jour ; les serveurs d'hébergement sont plus souvent bloqués par les sites
+  que ton PC (ces concours passent alors « intervention humaine »).
