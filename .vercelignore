@@ -1,0 +1,9 @@
+tests/
+docs/
+apercus/
+*.bat
+*.command
+config.toml
+allowlist.txt
+donnees/
+.venv/

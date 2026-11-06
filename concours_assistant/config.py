@@ -160,8 +160,14 @@ def charger_config(chemin: str | Path) -> Config:
     chemin = Path(chemin)
     if not chemin.exists():
         raise ErreurConfig(f"{chemin} introuvable : lancez d'abord `concours init`")
-    with chemin.open("rb") as fh:
-        brut = tomllib.load(fh)
+    return charger_config_texte(chemin.read_text(encoding="utf-8"), chemin.resolve().parent)
+
+
+def charger_config_texte(texte: str, racine: Path) -> Config:
+    try:
+        brut = tomllib.loads(texte)
+    except tomllib.TOMLDecodeError as e:
+        raise ErreurConfig(f"configuration illisible : {e}") from e
 
     profil_brut = dict(brut.get("profil", {}))
     if profil_brut.get("age") in (0, ""):
@@ -171,7 +177,7 @@ def charger_config(chemin: str | Path) -> Config:
     newsletter = _section(Newsletter, dict(collecte_brut.pop("newsletter", {})), "collecte.newsletter")
 
     cfg = Config(
-        racine=chemin.resolve().parent,
+        racine=Path(racine),
         profil=_section(Profil, profil_brut, "profil"),
         filtres=_section(Filtres, dict(brut.get("filtres", {})), "filtres"),
         collecte=_collecte(collecte_brut, flux, newsletter),

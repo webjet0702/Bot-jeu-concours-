@@ -85,3 +85,27 @@ def test_config_modele_valide_et_garde_fous(tmp_path):
     chemin.write_text(modele_config().replace("delai_min_par_domaine_s = 10", "delai_min_par_domaine_s = 1"), "utf-8")
     with pytest.raises(ErreurConfig):
         charger_config(chemin)
+
+
+def test_parametres_et_verrou(depot):
+    assert depot.lire_parametre("x") is None
+    depot.ecrire_parametre("x", "1")
+    depot.ecrire_parametre("x", "2")
+    assert depot.lire_parametre("x") == "2"
+    assert depot.prendre_verrou("analyse", 60)
+    assert not depot.prendre_verrou("analyse", 60)  # déjà pris
+    depot.liberer_verrou("analyse")
+    assert depot.prendre_verrou("analyse", 60)
+
+
+def test_robots_cache_et_tout_effacer(depot):
+    depot.mettre_robots_en_cache("https://a.fr", 200, "User-agent: *\nAllow: /")
+    assert depot.robots_en_cache("https://a.fr", 3600) == (200, "User-agent: *\nAllow: /")
+    depot.noter_acces("a.fr", 123.5)
+    assert depot.dernier_acces("a.fr") == 123.5
+    depot.ecrire_parametre("mot_de_passe", "h")
+    depot.ecrire_parametre("config_toml", "[profil]")
+    depot.ajouter_concours(ConcoursCandidat("https://m.fr/jeu", "Jeu", "allowlist"))
+    depot.tout_effacer(garder_parametres=("mot_de_passe",))
+    assert depot.lister() == [] and depot.lire_parametre("config_toml") is None
+    assert depot.lire_parametre("mot_de_passe") == "h"

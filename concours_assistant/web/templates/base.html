@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="jeton" content="{{ jeton }}">
   <title>{% block titre %}Concours{% endblock %} · Assistant concours</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
@@ -17,6 +18,11 @@
       <a href="{{ url_for('domaines') }}" class="{{ 'actif' if ep == 'domaines' }}">Sites</a>
       <a href="{{ url_for('journal') }}" class="{{ 'actif' if ep == 'journal' }}">Journal</a>
       <a href="{{ url_for('donnees') }}" class="{{ 'actif' if ep in ('donnees', 'consentement') }}">Mes données</a>
+      {% if en_ligne and connecte %}
+        <form method="post" action="{{ url_for('deconnexion') }}" class="en-ligne">
+          <input type="hidden" name="jeton" value="{{ jeton }}"><button class="lien-nav">Déconnexion</button>
+        </form>
+      {% endif %}
     </nav>
   </div>
 </header>
@@ -24,14 +30,11 @@
   {% with messages = get_flashed_messages(with_categories=true) %}
     {% for categorie, message in messages %}<div class="alerte alerte-{{ categorie }}" role="status">{{ message }}</div>{% endfor %}
   {% endwith %}
-  {% if tache.en_cours and request.endpoint != 'tableau' %}
-    <div class="alerte alerte-info" id="bandeau-tache">{{ tache.nom }} en cours… (suivi sur le <a href="{{ url_for('tableau') }}">tableau de bord</a>)</div>
-  {% endif %}
   {% block contenu %}{% endblock %}
 </main>
 <footer class="conteneur pied">
-  Site local (seulement sur ton ordinateur). L'outil ne contourne aucune protection anti-robot, ne résout aucun CAPTCHA
-  et n'envoie jamais une inscription à ta place.
+  {% if en_ligne %}Site en ligne privé (connexion obligatoire).{% else %}Site local (seulement sur ton ordinateur).{% endif %}
+  L'outil ne contourne aucune protection anti-robot, ne résout aucun CAPTCHA et n'envoie jamais une inscription à ta place.
 </footer>
 <script src="{{ url_for('static', filename='app.js') }}"></script>
 </body>

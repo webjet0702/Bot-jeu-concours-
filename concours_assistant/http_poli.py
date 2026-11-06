@@ -29,6 +29,7 @@ from .journal import Journal
 from .urls import domaine as domaine_de
 
 MAX_REDIRECTIONS = 5
+CACHE_ROBOTS_S = 24 * 3600
 
 
 class ErreurAcces(Exception):
@@ -91,7 +92,7 @@ def _decoder(contenu: bytes, type_contenu: str) -> str:
 
 class ClientPoli:
     def __init__(self, cfg: Reseau, depot: Depot, journal: Journal, session: requests.Session | None = None,
-                 horloge: Callable[[], float] = time.monotonic, dormir: Callable[[float], None] = time.sleep):
+                 horloge: Callable[[], float] = time.time, dormir: Callable[[float], None] = time.sleep):
         self.cfg = cfg
         self.depot = depot
         self.journal = journal
@@ -141,14 +142,19 @@ class ClientPoli:
         return delai
 
     def _attendre(self, d: str, rp: RobotFileParser | None) -> None:
+        # Le dernier accès est aussi lu en base : le délai est respecté même d'une requête web à l'autre.
         dernier = self._dernier_acces.get(d)
+        if dernier is None:
+            dernier = self.depot.dernier_acces(d)
         if dernier is not None:
             reste = self._delai(rp) - (self.horloge() - dernier)
             if reste > 0:
                 self.dormir(reste)
 
     def _compter(self, d: str) -> None:
-        self._dernier_acces[d] = self.horloge()
+        instant = self.horloge()
+        self._dernier_acces[d] = instant
+        self.depot.noter_acces(d, instant)
         self._nb_total += 1
         self._nb_par_domaine[d] += 1
 
@@ -167,6 +173,18 @@ class ClientPoli:
         self.journal.evenement(type_evt, domaine=d, url=url, raison=raison,
                                action="automatisation arrêtée, intervention humaine requise")
 
+    @staticmethod
+    def _interpreter_robots(rp: RobotFileParser, statut: int, texte: str) -> None:
+        if statut == 200:
+            rp.parse(texte.splitlines())
+        elif statut in (401, 403):
+            rp.disallow_all = True  # prudence : accès à robots.txt refusé => on ne touche à rien
+        elif 400 <= statut < 500:
+            rp.allow_all = True     # pas de robots.txt
+        else:
+            rp.disallow_all = True  # 5xx / injoignable => tout interdire (RFC 9309)
+        rp.modified()
+
     def _robots_pour(self, url: str) -> RobotFileParser:
         parties = urlsplit(url)
         origine = f"{parties.scheme}://{parties.netloc}"
@@ -175,6 +193,11 @@ class ClientPoli:
         d = domaine_de(url)
         rp = RobotFileParser()
         rp.set_url(origine + "/robots.txt")
+        en_cache = self.depot.robots_en_cache(origine, CACHE_ROBOTS_S)
+        if en_cache is not None:
+            self._interpreter_robots(rp, *en_cache)
+            self._robots[origine] = rp
+            return rp
         self._verifier_quota(url, d)
         self._attendre(d, None)
         try:
@@ -183,6 +206,7 @@ class ClientPoli:
             detection = detecter_defi(r.status_code, r.headers, r.text if r.status_code != 200 else "")
         except requests.RequestException as e:
             rp.disallow_all = True
+            rp.modified()
             self.journal.evenement("robots_injoignable", domaine=d, erreur=type(e).__name__,
                                    decision="tout interdire (prudence)")
         else:
@@ -190,17 +214,11 @@ class ClientPoli:
                 self._bloquer(d, BLOCAGE_HUMAIN, f"défi anti-robot sur robots.txt ({detection.fournisseur})",
                               origine + "/robots.txt", "defi_anti_bot")
                 raise DefiAntiBot(url, detection.fournisseur)
-            if r.status_code == 200:
-                rp.parse(texte.splitlines())
-            elif r.status_code in (401, 403):
-                rp.disallow_all = True  # prudence : accès à robots.txt refusé => on ne touche à rien
-            elif 400 <= r.status_code < 500:
-                rp.allow_all = True     # pas de robots.txt
-            else:
-                rp.disallow_all = True  # 5xx : robots.txt injoignable => tout interdire (RFC 9309)
+            self._interpreter_robots(rp, r.status_code, texte)
+            if r.status_code < 500:  # on ne garde pas en cache une panne passagère
+                self.depot.mettre_robots_en_cache(origine, r.status_code, texte)
         finally:
             self._compter(d)
-        rp.modified()
         self._robots[origine] = rp
         return rp
 

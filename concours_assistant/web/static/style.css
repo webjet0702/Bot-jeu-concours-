@@ -239,3 +239,10 @@ details.carte[open] > summary { margin-bottom: 12px; }
   .liste .actions { justify-content: flex-end; }
   .liste .actions::before { content: none; }
 }
+
+/* Connexion / navigation en ligne */
+.connexion { max-width: 420px; margin: 32px auto; }
+.logo.grand { width: 44px; height: 44px; font-size: 20px; border-radius: 12px; }
+.lien-nav { background: none; border: 0; font: inherit; font-weight: 500; color: var(--discret); padding: 6px 10px;
+            border-radius: 8px; cursor: pointer; }
+.lien-nav:hover { background: var(--surface-2); color: var(--texte); }

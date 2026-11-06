@@ -11,9 +11,10 @@ from datetime import date
 from pathlib import Path
 
 from . import services
-from .config import Config, ErreurConfig, charger_config, modele_config
+from .config import Config, ErreurConfig, modele_config
 from .conformite import checklist_avant_inscription
 from .db import Depot
+from .environnement import SourceConfig, en_ligne, ouvrir_depot, url_base
 from .journal import Journal
 from .models import Mode, Statut
 from .prefill import affichage_disponible, participation_manuelle, preremplir_et_attendre
@@ -29,10 +30,12 @@ MODELE_ALLOWLIST = """\
 
 def preparer_fichiers(chemin_config: Path) -> Config:
     """Crée config.toml et allowlist.txt s'ils n'existent pas, puis charge la configuration."""
+    if en_ligne():
+        return SourceConfig(chemin_config).charger()
     if not chemin_config.exists():
         chemin_config.write_text(modele_config(), encoding="utf-8")
         print(f"✓ {chemin_config} créé : renseignez au minimum `email` et `age` dans [profil].")
-    cfg = charger_config(chemin_config)
+    cfg = SourceConfig(chemin_config).charger()
     if not cfg.chemin_allowlist.exists():
         cfg.chemin_allowlist.write_text(MODELE_ALLOWLIST, encoding="utf-8")
     return cfg
@@ -47,8 +50,8 @@ def _oui(question: str) -> bool:
 
 class Contexte_CLI:
     def __init__(self, args: argparse.Namespace):
-        self.cfg: Config = charger_config(args.config)
-        self.depot = Depot(self.cfg.chemin_base)
+        self.cfg: Config = SourceConfig(Path(args.config)).charger()
+        self.depot = ouvrir_depot(self.cfg)
         self.journal = Journal(self.depot)
         self.aujourd_hui = date.today()
 
@@ -62,7 +65,7 @@ class Contexte_CLI:
 
 def cmd_init(args) -> int:
     cfg = preparer_fichiers(Path(args.config))
-    depot = Depot(cfg.chemin_base)
+    depot = ouvrir_depot(cfg)
     print(f"✓ base de données : {cfg.chemin_base}")
     if not depot.consentement_actif(VERSION_CONSENTEMENT):
         return _demander_consentement(cfg, depot)
@@ -81,8 +84,8 @@ def _demander_consentement(cfg: Config, depot: Depot) -> int:
 
 
 def cmd_consentement(args) -> int:
-    cfg = charger_config(args.config)
-    depot = Depot(cfg.chemin_base)
+    cfg = SourceConfig(Path(args.config)).charger()
+    depot = ouvrir_depot(cfg)
     if args.retirer:
         depot.retirer_consentement()
         Journal(depot).evenement("consentement_retire")
@@ -246,6 +249,19 @@ def cmd_statut(args) -> int:
     return 0
 
 
+def cmd_base_init(args) -> int:
+    """Version en ligne : crée le schéma PostgreSQL (à lancer une fois, avec un rôle qui en a le droit)."""
+    url = url_base()
+    if not url:
+        print("CONCOURS_DATABASE_URL n'est pas définie.")
+        return 1
+    depot = Depot(url)
+    depot.initialiser_schema_pg()
+    depot.fermer()
+    print("✓ schéma « concours » créé.")
+    return 0
+
+
 def cmd_site(args) -> int:
     from .web import lancer_site
 
@@ -302,14 +318,19 @@ def cmd_exporter(args) -> int:
 
 
 def cmd_purger(args) -> int:
-    cfg = charger_config(args.config)
+    cfg = SourceConfig(Path(args.config)).charger()
     if args.tout:
         if not _oui(f"Effacer DÉFINITIVEMENT {cfg.dossier_donnees} (base, journal, preuves) ? [o/N] "):
             return 1
-        purger_tout(cfg)
+        if en_ligne():
+            depot = ouvrir_depot(cfg)
+            purger_tout(cfg, depot)
+            depot.fermer()
+        else:
+            purger_tout(cfg)
         print(f"✓ données effacées. Supprimez aussi {args.config} et {cfg.chemin_allowlist} si vous le souhaitez.")
         return 0
-    depot = Depot(cfg.chemin_base)
+    depot = ouvrir_depot(cfg)
     compte = purger_anciens(depot, cfg)
     Journal(depot).evenement("purge", **compte)
     print(f"✓ purge (> {cfg.vie_privee.retention_jours} jours) : {compte}")
@@ -330,6 +351,7 @@ def construire_parseur() -> argparse.ArgumentParser:
     s.add_argument("--sans-navigateur", action="store_true", help="ne pas ouvrir le navigateur automatiquement")
     s.set_defaults(f=cmd_site)
     sp.add_parser("init", help="créer la configuration, la base et recueillir le consentement").set_defaults(f=cmd_init)
+    sp.add_parser("base-init", help="version en ligne : créer le schéma PostgreSQL").set_defaults(f=cmd_base_init)
     s = sp.add_parser("consentement", help="donner ou retirer son consentement")
     s.add_argument("--retirer", action="store_true")
     s.set_defaults(f=cmd_consentement)

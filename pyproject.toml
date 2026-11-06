@@ -14,12 +14,15 @@ dependencies = [
     "beautifulsoup4>=4.12",
     "feedparser>=6.0",
     "pypdf>=4.0",
-    "playwright>=1.44",
     "flask>=3.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+# Pré-remplissage dans un navigateur visible (version PC uniquement).
+navigateur = ["playwright>=1.44"]
+# Version en ligne (PostgreSQL / Supabase).
+en-ligne = ["psycopg[binary]>=3.2"]
+dev = ["pytest>=8", "psycopg[binary]>=3.2"]
 
 [project.scripts]
 concours = "concours_assistant.cli:main"
@@ -28,7 +31,7 @@ concours = "concours_assistant.cli:main"
 packages = ["concours_assistant", "concours_assistant.sources", "concours_assistant.web"]
 
 [tool.setuptools.package-data]
-concours_assistant = ["schema.sql", "config_modele.toml"]
+concours_assistant = ["schema.sql", "schema_pg.sql", "config_modele.toml"]
 "concours_assistant.web" = ["templates/*.html", "static/*"]
 
 [tool.pytest.ini_options]

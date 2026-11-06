@@ -1,14 +1,9 @@
-"""Modification ciblée de config.toml (on garde les commentaires et le reste du fichier)."""
+"""Modification ciblée de la configuration TOML (on garde les commentaires et le reste du texte)."""
 
 from __future__ import annotations
 
 import json
-import os
 import re
-import tempfile
-from pathlib import Path
-
-from ..config import Config, charger_config
 
 
 def valeur_toml(v) -> str:
@@ -42,18 +37,7 @@ def remplacer_section(texte: str, section: str, valeurs: dict) -> str:
     return "\n".join(lignes) + "\n"
 
 
-def enregistrer_config(chemin: Path, sections: dict[str, dict]) -> Config:
-    """Applique les modifications, VALIDE le résultat, puis remplace le fichier. Lève ErreurConfig sinon."""
-    texte = chemin.read_text(encoding="utf-8")
+def appliquer_sections(texte: str, sections: dict[str, dict]) -> str:
     for section, valeurs in sections.items():
         texte = remplacer_section(texte, section, valeurs)
-    fd, tmp = tempfile.mkstemp(prefix=".config-", suffix=".toml", dir=chemin.parent)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as fh:
-            fh.write(texte)
-        cfg = charger_config(tmp)  # mêmes garde-fous que d'habitude (seuil >= 100 €, UA honnête…)
-        os.replace(tmp, chemin)
-        return cfg
-    finally:
-        if os.path.exists(tmp):
-            os.unlink(tmp)
+    return texte

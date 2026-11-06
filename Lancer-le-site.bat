@@ -13,7 +13,7 @@ if errorlevel 1 (
 if not exist ".venv\installe.ok" (
   echo Premiere installation : patiente quelques minutes...
   python -m venv .venv || goto erreur
-  ".venv\Scripts\python.exe" -m pip install -e . || goto erreur
+  ".venv\Scripts\python.exe" -m pip install -e ".[navigateur]" || goto erreur
   ".venv\Scripts\python.exe" -m playwright install chromium || goto erreur
   echo ok> ".venv\installe.ok"
 )

@@ -18,18 +18,18 @@
   <div class="carte">
     <h2>Chercher des concours</h2>
     <p class="discret">Lit tes sources ({{ sources }}) puis analyse jusqu'à 20 concours : gain ≥ 100 €, règlement, arnaques, âge, pays. Compte quelques minutes : l'outil attend 10 s entre deux pages d'un même site.</p>
-    <form method="post" action="{{ url_for('chercher') }}" class="pile">
+    <form method="post" action="{{ url_for('chercher') }}" class="pile" data-boucle="chercher">
       {{ jeton_champ() }}
       {% if besoin_mdp %}
         <label>Mot de passe d'application Gmail <span class="discret">(pour Google Alertes, jamais enregistré)</span>
           <input type="password" name="mdp_imap" autocomplete="off"></label>
       {% endif %}
-      <button class="bouton bouton-principal bouton-large" {{ 'disabled' if tache.en_cours }}>Chercher de nouveaux concours</button>
+      <button class="bouton bouton-principal bouton-large" data-action>Chercher de nouveaux concours</button>
     </form>
     {% if compte.get('nouveau', 0) %}
-      <form method="post" action="{{ url_for('analyser') }}" style="margin-top:10px">
+      <form method="post" action="{{ url_for('chercher') }}" style="margin-top:10px" data-boucle="analyser">
         {{ jeton_champ() }}
-        <button class="bouton bouton-large" {{ 'disabled' if tache.en_cours }}>Analyser les {{ compte.get('nouveau') }} concours en attente</button>
+        <button class="bouton bouton-large" data-action>Analyser les {{ compte.get('nouveau') }} concours en attente</button>
       </form>
     {% endif %}
   </div>
@@ -39,19 +39,16 @@
       {{ jeton_champ() }}
       <label>Lien du concours<input type="url" name="url" required placeholder="https://…" inputmode="url"></label>
       <label>Nom <span class="discret">(facultatif)</span><input type="text" name="nom" maxlength="200"></label>
-      <button class="bouton bouton-large" {{ 'disabled' if tache.en_cours }}>Ajouter et analyser</button>
+      <button class="bouton bouton-large" data-action>Ajouter et analyser</button>
     </form>
   </div>
 </section>
 
-{% if tache.lignes or tache.en_cours %}
-  <section class="carte" id="tache" data-en-cours="{{ '1' if tache.en_cours else '0' }}">
-    <h2>{{ tache.nom }}
-      {% if tache.en_cours %}<span class="pastille pastille-attention">en cours…</span>
-      {% else %}<span class="pastille">terminée à {{ tache.termine_le }}</span>{% endif %}</h2>
-    <pre class="log" id="tache-log">{{ tache.lignes | join('\n') }}</pre>
-  </section>
-{% endif %}
+<section class="carte" id="progression" data-auto="{{ '1' if auto else '0' }}" hidden>
+  <h2>Recherche en cours <span class="pastille pastille-attention" id="progression-etat">…</span></h2>
+  <p class="discret petit">Garde cette page ouverte. L'outil attend 10 s entre deux pages d'un même site, par politesse.</p>
+  <pre class="log" id="progression-log"></pre>
+</section>
 
 <nav class="onglets" aria-label="Filtrer">
   {% for cle, lib, _ in filtres %}<a href="{{ url_for('tableau', filtre=cle) }}" class="{{ 'actif' if cle == filtre }}">{{ lib }}</a>{% endfor %}

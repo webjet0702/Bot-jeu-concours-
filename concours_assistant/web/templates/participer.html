@@ -36,6 +36,7 @@
     <label class="case"><input type="checkbox" name="manuel" value="1"> <span>Je préfère tout faire moi-même (mode manuel)</span></label>
   {% else %}
     <p>Mode <strong>manuel</strong> : tu ouvres la page du concours dans un nouvel onglet et tu remplis toi-même. L'outil te montre les infos à copier.</p>
+    {% if en_ligne and prefill %}<p class="discret petit">Le pré-remplissage automatique ne fonctionne que sur ton PC (version locale) : en ligne, tout se fait sur ton appareil.</p>{% endif %}
   {% endif %}
   <button class="bouton bouton-principal bouton-large">C'est parti</button>
 </form>

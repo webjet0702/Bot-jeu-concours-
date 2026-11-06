@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+
 from pathlib import Path
 
 import pytest
@@ -64,9 +66,21 @@ class Horloge:
         self.t += s
 
 
-@pytest.fixture
-def depot():
-    d = Depot(":memory:")
+URL_PG_TEST = os.environ.get("CONCOURS_TEST_PG_URL")  # ex. postgresql://testeur:testeur@127.0.0.1/concours_test
+MOTEURS = ["sqlite"] + (["postgres"] if URL_PG_TEST else [])
+
+
+def depot_postgres_vierge() -> Depot:
+    """Schéma « concours » recréé à neuf (base de TEST uniquement)."""
+    d = Depot(URL_PG_TEST)
+    d.conn.execute("DROP SCHEMA IF EXISTS concours CASCADE")
+    d.initialiser_schema_pg()
+    return d
+
+
+@pytest.fixture(params=MOTEURS)
+def depot(request):
+    d = depot_postgres_vierge() if request.param == "postgres" else Depot(":memory:")
     yield d
     d.fermer()
 

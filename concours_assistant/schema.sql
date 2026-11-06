@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS domaines (
     justification            TEXT,                -- ex. "CGU art. 7 : outils d'aide autorisés (vérifié le ...)"
     verifie_le               TEXT,
     bloque_jusqu_au          TEXT,                -- '9999-12-31...' = jusqu'à intervention humaine
-    raison_blocage           TEXT
+    raison_blocage           TEXT,
+    dernier_acces            REAL                 -- horodatage Unix : délai entre deux requêtes au même site
 );
 
 CREATE TABLE IF NOT EXISTS consentements (
@@ -65,3 +66,18 @@ CREATE TABLE IF NOT EXISTS journal (
 );
 
 CREATE INDEX IF NOT EXISTS idx_journal_horodatage ON journal(horodatage);
+
+-- Paramètres : configuration (version en ligne), mot de passe (haché), verrou anti force brute.
+CREATE TABLE IF NOT EXISTS parametres (
+    cle    TEXT PRIMARY KEY,
+    valeur TEXT NOT NULL,
+    maj_le TEXT NOT NULL
+);
+
+-- robots.txt mis en cache 24 h (moins de requêtes vers les sites).
+CREATE TABLE IF NOT EXISTS robots_cache (
+    origine     TEXT PRIMARY KEY,
+    statut      INTEGER NOT NULL,
+    contenu     TEXT,
+    recupere_le TEXT NOT NULL
+);

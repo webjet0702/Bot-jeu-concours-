@@ -4,7 +4,7 @@
 {% block contenu %}
 <div class="titre-page">
   <h1>Mon profil</h1>
-  <p class="discret">Enregistré seulement sur ton ordinateur ({{ cfg.racine }}/config.toml).</p>
+  <p class="discret">Enregistré dans {{ emplacement }}.</p>
 </div>
 <form method="post" class="pile">
   {{ jeton_champ() }}

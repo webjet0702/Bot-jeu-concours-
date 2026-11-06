@@ -1,4 +1,4 @@
-"""Site local : sécurité, consentement, parcours d'inscription, profil."""
+"""Site : sécurité, consentement, parcours d'inscription, profil ; version locale ET version en ligne."""
 
 from __future__ import annotations
 
@@ -11,7 +11,20 @@ from concours_assistant.db import Depot
 from concours_assistant.models import ConcoursCandidat
 from concours_assistant.web import creer_app
 from concours_assistant.web.app import lien_sur
+from concours_assistant.web.auth import hacher, verifier
 from concours_assistant.web.toml_edit import remplacer_section
+
+from .conftest import URL_PG_TEST, depot_postgres_vierge
+
+JETON = "jeton-de-test"
+TOUT_COCHER = [str(i) for i in range(30)]
+
+
+def _client(app):
+    client = app.test_client()
+    with client.session_transaction() as s:
+        s["jeton"] = JETON
+    return client
 
 
 @pytest.fixture
@@ -21,25 +34,25 @@ def site(tmp_path):
                       .replace("age = 0", "age = 20"), encoding="utf-8")
     app = creer_app(chemin)
     app.config["TESTING"] = True
-    cfg = charger_config(chemin)
-    return app, app.test_client(), app.config["JETON"], cfg, chemin
+    return app, _client(app), JETON, charger_config(chemin), chemin
 
 
 def _depot(cfg) -> Depot:
     return Depot(cfg.chemin_base)
 
 
-def _consentir(client, jeton):
+def _consentir(client, jeton=JETON):
     return client.post("/consentement", data={"jeton": jeton, "decision": "accepter"})
 
 
-def _concours_pret(cfg, nom="Grand jeu", gain=549.0, url="https://marque.fr/jeu") -> int:
-    d = _depot(cfg)
-    cid = d.ajouter_concours(ConcoursCandidat(url, nom, "allowlist"))
-    d.mettre_a_jour(cid, statut="pret", mode_assistance="manuel", gain_principal_eur=gain,
-                    url_participation=url, date_limite="2099-12-31")
-    d.fermer()
+def _concours_pret(depot: Depot, nom="Grand jeu", gain=549.0, url="https://marque.fr/jeu", mode="manuel") -> int:
+    cid = depot.ajouter_concours(ConcoursCandidat(url, nom, "allowlist"))
+    depot.mettre_a_jour(cid, statut="pret", mode_assistance=mode, gain_principal_eur=gain,
+                        url_participation=url, date_limite="2099-12-31")
     return cid
+
+
+# ----------------------------------------------------------------- local
 
 
 def test_hote_etranger_refuse(site):
@@ -51,21 +64,25 @@ def test_post_sans_jeton_refuse(site):
     _, client, *_ = site
     assert client.post("/consentement", data={"decision": "accepter"}).status_code == 400
     assert client.post("/consentement", data={"decision": "accepter", "jeton": "faux"}).status_code == 400
+    assert client.post("/api/analyser", headers={"X-Jeton": "faux"}).status_code == 400
 
 
 def test_consentement_obligatoire(site):
-    _, client, jeton, *_ = site
+    _, client, *_ = site
     r = client.get("/")
     assert r.status_code == 302 and r.headers["Location"].endswith("/consentement")
     assert client.get("/profil").status_code == 200  # le profil reste accessible
-    _consentir(client, jeton)
+    assert client.post("/api/analyser", headers={"X-Jeton": JETON}).status_code == 403
+    _consentir(client)
     assert client.get("/").status_code == 200
 
 
 def test_noms_externes_echappes(site):
-    _, client, jeton, cfg, _ = site
-    _consentir(client, jeton)
-    _concours_pret(cfg, nom="<script>alert(1)</script>")
+    _, client, _, cfg, _ = site
+    _consentir(client)
+    d = _depot(cfg)
+    _concours_pret(d, nom="<script>alert(1)</script>")
+    d.fermer()
     html = client.get("/").get_data(as_text=True)
     assert "<script>alert(1)</script>" not in html and "&lt;script&gt;" in html
 
@@ -76,67 +93,73 @@ def test_lien_javascript_neutralise():
 
 
 def test_parcours_manuel_complet(site):
-    _, client, jeton, cfg, _ = site
-    _consentir(client, jeton)
-    cid = _concours_pret(cfg)
+    _, client, _, cfg, _ = site
+    _consentir(client)
+    d = _depot(cfg)
+    cid = _concours_pret(d)
+    d.fermer()
 
     # Accès direct au suivi sans checklist : renvoyé vers la checklist.
     assert client.get(f"/concours/{cid}/suivi").headers["Location"].endswith(f"/concours/{cid}/participer")
-
-    page = client.get(f"/concours/{cid}/participer").get_data(as_text=True)
-    assert "Contrôles automatiques" in page
+    assert "Contrôles automatiques" in client.get(f"/concours/{cid}/participer").get_data(as_text=True)
 
     # Checklist incomplète : refusée.
-    r = client.post(f"/concours/{cid}/participer", data={"jeton": jeton, "confirme": ["0"]})
+    r = client.post(f"/concours/{cid}/participer", data={"jeton": JETON, "confirme": ["0"]})
     assert r.headers["Location"].endswith(f"/concours/{cid}/participer")
 
     # Checklist complète : suivi en mode manuel (l'humain ouvre le lien et envoie lui-même).
-    indices = [str(i) for i in range(30)]
-    r = client.post(f"/concours/{cid}/participer", data={"jeton": jeton, "confirme": indices})
+    r = client.post(f"/concours/{cid}/participer", data={"jeton": JETON, "confirme": TOUT_COCHER})
     assert r.headers["Location"].endswith(f"/concours/{cid}/suivi")
     suivi = client.get(f"/concours/{cid}/suivi").get_data(as_text=True)
     assert "dedie@example.org" in suivi and "https://marque.fr/jeu" in suivi
 
-    client.post(f"/concours/{cid}/terminer", data={"jeton": jeton, "envoye": "oui", "note": "email reçu"})
+    client.post(f"/concours/{cid}/terminer", data={"jeton": JETON, "envoye": "oui", "note": "email reçu"})
     d = _depot(cfg)
     row = d.obtenir(cid)
-    assert row["statut"] == "inscrit" and "email reçu" in row["preuve"]
     types = [e["type"] for e in d.lire_journal(10)]
     d.fermer()
+    assert row["statut"] == "inscrit" and "email reçu" in row["preuve"]
     assert {"checklist_validee", "participation_debut", "inscription_confirmee"} <= set(types)
 
     # Plus de checklist validée : on ne peut pas « terminer » une seconde fois.
-    r = client.post(f"/concours/{cid}/terminer", data={"jeton": jeton, "envoye": "oui"})
+    r = client.post(f"/concours/{cid}/terminer", data={"jeton": JETON, "envoye": "oui"})
     assert r.headers["Location"].endswith(f"/concours/{cid}/participer")
 
 
 def test_checklist_bloque_gain_insuffisant(site):
-    _, client, jeton, cfg, _ = site
-    _consentir(client, jeton)
-    cid = _concours_pret(cfg, gain=40)
-    page = client.get(f"/concours/{cid}/participer").get_data(as_text=True)
-    assert "Participation impossible" in page
-    r = client.post(f"/concours/{cid}/participer", data={"jeton": jeton, "confirme": [str(i) for i in range(30)]})
-    assert r.headers["Location"].endswith(f"/concours/{cid}/participer")
+    _, client, _, cfg, _ = site
+    _consentir(client)
     d = _depot(cfg)
-    assert d.obtenir(cid)["statut"] == "pret"
+    cid = _concours_pret(d, gain=40)
     d.fermer()
+    assert "Participation impossible" in client.get(f"/concours/{cid}/participer").get_data(as_text=True)
+    client.post(f"/concours/{cid}/participer", data={"jeton": JETON, "confirme": TOUT_COCHER})
+    assert client.get(f"/concours/{cid}/suivi").status_code == 302  # pas de checklist validée
 
 
 def test_pas_de_reanalyse_si_inscrit(site):
-    app, client, jeton, cfg, _ = site
-    _consentir(client, jeton)
-    cid = _concours_pret(cfg)
+    _, client, _, cfg, _ = site
+    _consentir(client)
     d = _depot(cfg)
+    cid = _concours_pret(d)
     d.mettre_a_jour(cid, statut="inscrit", date_inscription="2026-11-06T10:00:00+00:00")
     d.fermer()
-    client.post(f"/concours/{cid}/reanalyser", data={"jeton": jeton})
-    assert not app.extensions["taches"].etat()["en_cours"]
+    client.post(f"/concours/{cid}/reanalyser", data={"jeton": JETON})
+    d = _depot(cfg)
+    assert d.obtenir(cid)["statut"] == "inscrit"
+    d.fermer()
+
+
+def test_api_analyser_sans_rien_a_faire(site):
+    _, client, *_ = site
+    _consentir(client)
+    r = client.post("/api/analyser", headers={"X-Jeton": JETON})
+    assert r.status_code == 200 and r.get_json()["en_attente"] == 0
 
 
 def test_profil_enregistre_et_valide(site):
-    _, client, jeton, _, chemin = site
-    base = {"jeton": jeton, "email": "nouveau@example.org", "age": "17", "pays_residence": "BE",
+    _, client, _, _, chemin = site
+    base = {"jeton": JETON, "email": "nouveau@example.org", "age": "17", "pays_residence": "BE",
             "valeur_minimale_eur": "150", "critere_valeur": "lot_principal", "jours_restants_minimum": "1",
             "newsletter_utilisateur": "", "newsletter_dossier": "Concours"}
     client.post("/profil", data=base)
@@ -159,27 +182,155 @@ def test_remplacer_section_toml():
 
 
 def test_ajout_lien_et_doublon(site):
-    app, client, jeton, cfg, _ = site
-    _consentir(client, jeton)
-    r = client.post("/ajouter", data={"jeton": jeton, "url": "javascript:alert(1)"})
-    assert r.status_code == 302
+    _, client, _, cfg, _ = site
+    _consentir(client)
+    client.post("/ajouter", data={"jeton": JETON, "url": "javascript:alert(1)"})
     d = _depot(cfg)
     assert d.lister() == []
+    _concours_pret(d, url="https://marque.fr/jeu")
     d.fermer()
-    _concours_pret(cfg, url="https://marque.fr/jeu")
-    client.post("/ajouter", data={"jeton": jeton, "url": "https://www.marque.fr/jeu?utm_source=x"})
+    client.post("/ajouter", data={"jeton": JETON, "url": "https://www.marque.fr/jeu?utm_source=x"})
     d = _depot(cfg)
     assert len(d.lister()) == 1
     d.fermer()
 
 
 def test_export_et_effacement(site):
-    _, client, jeton, cfg, _ = site
-    _consentir(client, jeton)
-    _concours_pret(cfg)
+    _, client, _, cfg, _ = site
+    _consentir(client)
+    d = _depot(cfg)
+    _concours_pret(d)
+    d.fermer()
     export = client.get("/donnees/export")
     assert export.status_code == 200 and json.loads(export.data)["profil"]["email"] == "dedie@example.org"
-    client.post("/donnees/effacer", data={"jeton": jeton, "confirmation": "non"})
+    client.post("/donnees/effacer", data={"jeton": JETON, "confirmation": "non"})
     assert cfg.chemin_base.exists()
-    client.post("/donnees/effacer", data={"jeton": jeton, "confirmation": "EFFACER"})
+    client.post("/donnees/effacer", data={"jeton": JETON, "confirmation": "EFFACER"})
     assert not cfg.chemin_base.exists()
+
+
+def test_hachage_mot_de_passe():
+    h = hacher("un mot de passe long")
+    assert h.startswith("pbkdf2_sha256$") and "un mot de passe" not in h
+    assert verifier("un mot de passe long", h) and not verifier("autre", h) and not verifier("x", "corrompu")
+
+
+# -------------------------------------------------------------- en ligne
+
+en_ligne_seulement = pytest.mark.skipif(not URL_PG_TEST, reason="CONCOURS_TEST_PG_URL non défini")
+
+
+@pytest.fixture
+def site_en_ligne(monkeypatch):
+    depot_postgres_vierge().fermer()
+    monkeypatch.setenv("CONCOURS_DATABASE_URL", URL_PG_TEST)
+    monkeypatch.setenv("CONCOURS_SECRET_KEY", "secret-de-test")
+    monkeypatch.setenv("CONCOURS_CODE_INSTALLATION", "code-installation-test")
+    monkeypatch.setenv("CRON_SECRET", "cron-de-test")
+    app = creer_app(None)
+    app.config["TESTING"] = True
+    return app, _client(app)
+
+
+def _installer(client, mdp="motdepasse-solide"):
+    return client.post("/connexion", data={"jeton": JETON, "code": "code-installation-test",
+                                           "mot_de_passe": mdp, "confirmation": mdp})
+
+
+def _reconnecter(app, mdp="motdepasse-solide"):
+    client = _client(app)
+    client.post("/connexion", data={"jeton": JETON, "mot_de_passe": mdp})
+    with client.session_transaction() as s:
+        s["jeton"] = JETON
+    return client
+
+
+@en_ligne_seulement
+def test_en_ligne_connexion_obligatoire(site_en_ligne):
+    app, client = site_en_ligne
+    assert client.get("/").headers["Location"].endswith("/connexion")
+    assert client.post("/api/analyser", headers={"X-Jeton": JETON}).status_code == 401
+    assert client.get("/profil").headers["Location"].endswith("/connexion")
+    assert "code d'installation" in client.get("/connexion").get_data(as_text=True)
+
+
+@en_ligne_seulement
+def test_en_ligne_installation_et_connexion(site_en_ligne):
+    app, client = site_en_ligne
+    # Mauvais code d'installation : refusé, aucun mot de passe créé.
+    client.post("/connexion", data={"jeton": JETON, "code": "faux", "mot_de_passe": "x" * 12,
+                                    "confirmation": "x" * 12})
+    d = Depot(URL_PG_TEST)
+    assert d.lire_parametre("mot_de_passe") is None
+    d.fermer()
+    # Bon code : mot de passe créé et connecté.
+    assert _installer(client).headers["Location"].endswith("/")
+    assert client.get("/").headers["Location"].endswith("/consentement")  # connecté, consentement à donner
+    with client.session_transaction() as s:
+        s["jeton"] = JETON
+    _consentir(client)
+    assert client.get("/").status_code == 200
+    # Le code d'installation ne permet plus de changer le mot de passe.
+    client.post("/deconnexion", data={"jeton": JETON})
+    _installer(_client(app), mdp="nouveau-mot-de-passe")
+    assert _reconnecter(app, "nouveau-mot-de-passe").get("/").status_code == 302
+    assert _reconnecter(app).get("/").status_code == 200
+
+
+@en_ligne_seulement
+def test_en_ligne_blocage_force_brute(site_en_ligne):
+    app, client = site_en_ligne
+    _installer(client)
+    pirate = _client(app)
+    for _ in range(5):
+        pirate.post("/connexion", data={"jeton": JETON, "mot_de_passe": "mauvais"})
+    # Même le bon mot de passe est refusé pendant le blocage.
+    assert _reconnecter(app).get("/").headers["Location"].endswith("/connexion")
+    assert "Trop d'essais" in _client(app).get("/connexion").get_data(as_text=True)
+
+
+@en_ligne_seulement
+def test_en_ligne_profil_en_base_et_pas_de_preremplissage(site_en_ligne):
+    app, client = site_en_ligne
+    _installer(client)
+    client = _reconnecter(app)
+    _consentir(client)
+    client.post("/profil", data={"jeton": JETON, "email": "moi@example.org", "age": "19", "pays_residence": "FR",
+                                 "valeur_minimale_eur": "100", "critere_valeur": "lot_principal",
+                                 "jours_restants_minimum": "0", "newsletter_dossier": "Concours"})
+    d = Depot(URL_PG_TEST)
+    assert 'email = "moi@example.org"' in d.lire_parametre("config_toml")
+    cid = _concours_pret(d, mode="preremplissage")
+    d.autoriser_domaine("marque.fr", "test : CGU autorisant l'aide à la saisie")
+    d.fermer()
+    client.post(f"/concours/{cid}/participer", data={"jeton": JETON, "confirme": TOUT_COCHER})
+    suivi = client.get(f"/concours/{cid}/suivi").get_data(as_text=True)
+    assert "Ouvrir la page" in suivi and "Chromium" not in suivi  # en ligne : toujours manuel
+    client.post(f"/concours/{cid}/terminer", data={"jeton": JETON, "envoye": "oui"})
+    d = Depot(URL_PG_TEST)
+    assert d.obtenir(cid)["statut"] == "inscrit"
+    d.fermer()
+
+
+@en_ligne_seulement
+def test_en_ligne_robot_protege(site_en_ligne):
+    app, client = site_en_ligne
+    assert client.get("/api/robot").status_code == 401
+    assert client.get("/api/robot", headers={"Authorization": "Bearer faux"}).status_code == 401
+    r = client.get("/api/robot", headers={"Authorization": "Bearer cron-de-test"})
+    assert r.status_code == 200 and "consentement" in r.get_json()["lignes"][0]
+
+
+@en_ligne_seulement
+def test_en_ligne_effacer_garde_le_mot_de_passe(site_en_ligne):
+    app, client = site_en_ligne
+    _installer(client)
+    client = _reconnecter(app)
+    _consentir(client)
+    d = Depot(URL_PG_TEST)
+    _concours_pret(d)
+    d.fermer()
+    client.post("/donnees/effacer", data={"jeton": JETON, "confirmation": "EFFACER"})
+    d = Depot(URL_PG_TEST)
+    assert d.lister() == [] and not d.consentement_actif() and d.lire_parametre("mot_de_passe")
+    d.fermer()

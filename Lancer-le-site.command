@@ -8,7 +8,7 @@ if ! command -v python3 >/dev/null 2>&1; then
 fi
 if [ ! -f .venv/installe.ok ]; then
   echo "Première installation : patiente quelques minutes…"
-  if python3 -m venv .venv && .venv/bin/python -m pip install -e . && .venv/bin/python -m playwright install chromium; then
+  if python3 -m venv .venv && .venv/bin/python -m pip install -e ".[navigateur]" && .venv/bin/python -m playwright install chromium; then
     touch .venv/installe.ok
   else
     echo "L'installation a échoué. Vérifie Python 3.11+ et ta connexion Internet."

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from collections.abc import Callable
 from datetime import date
 
@@ -70,10 +71,20 @@ def collecter_tout(cfg: Config, depot: Depot, journal: Journal, mdp_imap: str | 
     return nouveaux, doublons
 
 
+def compter_en_attente(depot: Depot) -> int:
+    return depot.compter_par_statut().get(Statut.NOUVEAU.value, 0)
+
+
 def analyser_tout(cfg: Config, depot: Depot, journal: Journal, log: Log, *, ids: list[int] | None = None,
-                  limite: int = 20, reessayer: bool = False, aujourd_hui: date | None = None) -> int:
-    """Analyse polie des concours. Renvoie le nombre de concours analysés."""
+                  limite: int = 20, reessayer: bool = False, aujourd_hui: date | None = None,
+                  budget_s: float | None = None) -> int:
+    """Analyse polie des concours. Renvoie le nombre de concours analysés.
+
+    `budget_s` : n'entame plus de nouveau concours au-delà de ce temps (requêtes web limitées en durée).
+    Les concours non traités restent « nouveaux » et seront analysés au prochain passage.
+    """
     aujourd_hui = aujourd_hui or date.today()
+    debut = time.monotonic()
     client = ClientPoli(cfg.reseau, depot, journal)
     if ids:
         rows = [r for r in (depot.obtenir(i) for i in ids) if r is not None]
@@ -85,6 +96,9 @@ def analyser_tout(cfg: Config, depot: Depot, journal: Journal, log: Log, *, ids:
         return 0
     faits = 0
     for i, row in enumerate(rows, 1):
+        if budget_s is not None and faits and time.monotonic() - debut > budget_s:
+            log("… suite au prochain passage")
+            break
         if row["statut"] == Statut.INSCRIT.value:  # jamais de réanalyse : on ne s'inscrit pas deux fois
             log(f"[{i}/{len(rows)}] déjà inscrit, ignoré : {row['nom'][:60]}")
             continue
@@ -98,20 +112,22 @@ def analyser_tout(cfg: Config, depot: Depot, journal: Journal, log: Log, *, ids:
             continue
         faits += 1
         log(f"   → {d.statut.value} ({d.mode.value})" + (f" : {d.motifs[0]}" if d.motifs else ""))
-    log(f"✓ Analyse terminée ({faits} concours)")
+    log(f"✓ {faits} concours analysé(s)")
     return faits
 
 
-def ajouter_lien(cfg: Config, depot: Depot, journal: Journal, url: str, nom: str = "") -> int | None:
-    """Ajoute un lien trouvé à la main (allowlist + base). Renvoie None si doublon."""
+def ajouter_lien(cfg: Config, depot: Depot, journal: Journal, url: str, nom: str = "",
+                 ecrire_allowlist: bool = True) -> int | None:
+    """Ajoute un lien trouvé à la main (base + allowlist.txt en local). Renvoie None si doublon."""
     url, nom = url.strip(), " ".join(nom.split())
     if not url.startswith(("http://", "https://")) or any(c in url for c in " \n\r|"):
         raise ValueError("le lien doit commencer par https:// (ou http://) et ne pas contenir d'espace")
     candidat = ConcoursCandidat(url=url, nom=nom or f"Concours {domaine(url)}", source="allowlist")
     cid = depot.ajouter_concours(candidat)
     if cid is not None:
-        with cfg.chemin_allowlist.open("a", encoding="utf-8") as fh:
-            fh.write(f"{url} | {candidat.nom}\n" if nom else f"{url}\n")
+        if ecrire_allowlist:
+            with cfg.chemin_allowlist.open("a", encoding="utf-8") as fh:
+                fh.write(f"{url} | {candidat.nom}\n" if nom else f"{url}\n")
         journal.evenement("lien_ajoute", concours_id=cid, domaine=domaine(url))
     return cid
 

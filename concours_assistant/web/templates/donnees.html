@@ -4,7 +4,7 @@
 {% block contenu %}
 <div class="titre-page">
   <h1>Mes données</h1>
-  <p class="discret">Stockées uniquement dans {{ cfg.dossier_donnees }}. Consentement : {% if actif %}<span class="pastille pastille-ok">donné</span>{% else %}<span class="pastille pastille-attention">non donné</span>{% endif %}</p>
+  <p class="discret">Stockées uniquement dans {{ emplacement }}. Consentement : {% if actif %}<span class="pastille pastille-ok">donné</span>{% else %}<span class="pastille pastille-attention">non donné</span>{% endif %}</p>
 </div>
 <section class="grille-2">
   <div class="carte pile">
@@ -26,9 +26,23 @@
     </form>
   {% else %}<a class="bouton bouton-principal" href="{{ url_for('consentement') }}">Lire et donner mon consentement</a>{% endif %}
 </section>
+{% if en_ligne %}
+<section class="carte pile">
+  <h2>Changer mon mot de passe</h2>
+  <form method="post" action="{{ url_for('mot_de_passe') }}" class="pile">
+    {{ jeton_champ() }}
+    <label>Mot de passe actuel<input type="password" name="actuel" required autocomplete="current-password"></label>
+    <div class="champs-2">
+      <label>Nouveau <span class="discret">(10 caractères min.)</span><input type="password" name="nouveau" required minlength="10" autocomplete="new-password"></label>
+      <label>Confirmation<input type="password" name="confirmation" required minlength="10" autocomplete="new-password"></label>
+    </div>
+    <button class="bouton">Changer</button>
+  </form>
+</section>
+{% endif %}
 <section class="carte pile">
   <h2>Tout effacer</h2>
-  <p class="discret">Supprime définitivement la base, le journal et les preuves. Ton fichier de profil (config.toml) reste : supprime-le à la main si tu veux.</p>
+  <p class="discret">{% if en_ligne %}Supprime définitivement tes concours, ton journal et ton profil de la base en ligne (ton mot de passe est gardé pour pouvoir te reconnecter).{% else %}Supprime définitivement la base, le journal et les preuves. Ton fichier de profil (config.toml) reste : supprime-le à la main si tu veux.{% endif %}</p>
   <form method="post" action="{{ url_for('donnees_effacer') }}" class="pile" data-confirmer="Effacer définitivement toutes tes données ?">
     {{ jeton_champ() }}
     <label>Tape EFFACER pour confirmer<input type="text" name="confirmation" autocomplete="off"></label>

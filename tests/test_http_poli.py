@@ -126,3 +126,17 @@ def test_captcha_formulaire_signale_sans_bloquer(fabrique_client, depot):
     rep = client.get("https://a.fr/jeu")
     assert rep.detection and rep.detection.fournisseur == "reCAPTCHA"
     assert depot.domaine_bloque("a.fr") is None
+
+
+def test_robots_en_cache_et_delai_partages_entre_requetes(depot, journal, horloge):
+    """En ligne, chaque clic est une nouvelle requête : robots.txt et le délai par site sont gardés en base."""
+    from concours_assistant.config import Reseau
+    from concours_assistant.http_poli import ClientPoli
+    from .conftest import FausseSession
+    routes = {"https://a.fr/robots.txt": ROBOTS_OK, "https://a.fr/1": PAGE, "https://a.fr/2": PAGE}
+    s1 = FausseSession(routes)
+    ClientPoli(Reseau(), depot, journal, session=s1, horloge=horloge, dormir=horloge.dormir).get("https://a.fr/1")
+    s2 = FausseSession(routes)
+    ClientPoli(Reseau(), depot, journal, session=s2, horloge=horloge, dormir=horloge.dormir).get("https://a.fr/2")
+    assert "https://a.fr/robots.txt" not in s2.appels  # robots.txt lu dans le cache
+    assert horloge.attentes and horloge.attentes[-1] == pytest.approx(10)  # délai respecté d'un client à l'autre
