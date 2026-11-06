@@ -1,12 +1,18 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "regions": ["cdg1"],
+  "regions": [
+    "cdg1"
+  ],
   "functions": {
     "api/index.py": {
       "maxDuration": 60,
       "excludeFiles": "{tests/**,docs/**,apercus/**,**/*.bat,**/*.command}"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
-  "crons": [{ "path": "/api/robot", "schedule": "17 6 * * *" }]
+  "crons": [
+    {
+      "path": "/api/robot",
+      "schedule": "17 6 * * *"
+    }
+  ]
 }

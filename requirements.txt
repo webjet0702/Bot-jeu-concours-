@@ -1,4 +1,5 @@
-# Dépendances de la version EN LIGNE (Vercel). Pas de Playwright : pas de navigateur sur le serveur.
+# Dépendances de la version en ligne (Vercel lit pyproject.toml ; ce fichier sert aux autres hébergeurs).
+# Pas de Playwright : pas de navigateur sur le serveur.
 requests>=2.31
 beautifulsoup4>=4.12
 feedparser>=6.0
