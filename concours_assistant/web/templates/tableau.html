@@ -14,6 +14,16 @@
   {% endfor %}
 </section>
 
+{% if compte.get('pret', 0) %}
+{% set n = compte.get('pret') %}
+<form method="post" action="{{ url_for('enchainer') }}" class="carte pile">
+  {{ jeton_champ() }}
+  <h2>Participer à la suite</h2>
+  <p class="discret">Les concours prêts défilent un par un, du plus gros gain au plus petit. Pour chacun : tu fais les vérifications, tu ouvres la page, tu copies ton email et tu valides, puis le suivant arrive tout seul.</p>
+  <button class="bouton bouton-principal bouton-large">Enchaîner {{ 'le concours prêt' if n == 1 else 'les ' ~ n ~ ' concours prêts' }}</button>
+</form>
+{% endif %}
+
 <section class="grille-2">
   <div class="carte">
     <h2>Chercher des concours</h2>

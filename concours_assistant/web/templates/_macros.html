@@ -4,3 +4,15 @@
 {%- endmacro %}
 
 {% macro jeton_champ() -%}<input type="hidden" name="jeton" value="{{ jeton }}">{%- endmacro %}
+
+{% macro bandeau_enchainement(r, restants) -%}
+{% if restants is not none %}
+<div class="alerte alerte-info bandeau-enchainement">
+  <span><strong>Mode enchaînement</strong> · {{ restants }} concours prêt{{ 's' if restants > 1 }} (celui-ci compris)</span>
+  <span class="bandeau-actions">
+    <form method="post" action="{{ url_for('enchainer_passer', cid=r.id) }}">{{ jeton_champ() }}<button class="bouton bouton-petit">Passer →</button></form>
+    <form method="post" action="{{ url_for('enchainer_arreter') }}">{{ jeton_champ() }}<button class="bouton bouton-petit">Arrêter</button></form>
+  </span>
+</div>
+{% endif %}
+{%- endmacro %}

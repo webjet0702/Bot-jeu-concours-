@@ -151,6 +151,9 @@ input:focus, select:focus, textarea:focus, .bouton:focus-visible {
 .alerte-danger { background: var(--danger-fond); color: var(--danger); }
 .alerte-info { background: var(--info-fond); color: var(--info); }
 .alerte a { color: inherit; text-decoration: underline; }
+.bandeau-enchainement { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; }
+.bandeau-actions { display: flex; gap: 8px; }
+.bandeau-actions form { margin: 0; }
 
 /* Onglets */
 .onglets { display: flex; gap: 6px; flex-wrap: wrap; margin: 4px 0 12px; }

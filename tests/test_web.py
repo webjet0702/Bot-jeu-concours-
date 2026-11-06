@@ -126,6 +126,43 @@ def test_parcours_manuel_complet(site):
     assert r.headers["Location"].endswith(f"/concours/{cid}/participer")
 
 
+def test_enchainement_presente_les_prets_un_par_un(site):
+    _, client, _, cfg, _ = site
+    _consentir(client)
+    d = _depot(cfg)
+    gros = _concours_pret(d, nom="Gros lot", gain=900, url="https://marque.fr/a")
+    moyen = _concours_pret(d, nom="Moyen lot", gain=300, url="https://marque.fr/b")
+    petit = _concours_pret(d, nom="Petit lot", gain=150, url="https://marque.fr/c")
+    d.fermer()
+
+    assert "Enchaîner les 3 concours prêts" in client.get("/").get_data(as_text=True)
+    r = client.post("/enchainer", data={"jeton": JETON})
+    assert r.headers["Location"].endswith(f"/concours/{gros}/participer")  # le plus gros gain d'abord
+    page = client.get(f"/concours/{gros}/participer").get_data(as_text=True)
+    assert "Mode enchaînement" in page and "3 concours prêts" in page
+
+    # Chaque concours garde sa checklist : rien ne part sans tes confirmations.
+    r = client.post(f"/concours/{gros}/participer", data={"jeton": JETON, "confirme": ["0"]})
+    assert r.headers["Location"].endswith(f"/concours/{gros}/participer")
+    client.post(f"/concours/{gros}/participer", data={"jeton": JETON, "confirme": TOUT_COCHER})
+    r = client.post(f"/concours/{gros}/terminer", data={"jeton": JETON, "envoye": "oui"})
+    assert r.headers["Location"].endswith(f"/concours/{moyen}/participer")
+
+    # « Passer » : le concours reste prêt, on passe au suivant.
+    r = client.post(f"/enchainer/passer/{moyen}", data={"jeton": JETON})
+    assert r.headers["Location"].endswith(f"/concours/{petit}/participer")
+
+    # « Je n'ai pas envoyé » : pas de boucle sur le même concours ; fin de la file.
+    client.post(f"/concours/{petit}/participer", data={"jeton": JETON, "confirme": TOUT_COCHER})
+    r = client.post(f"/concours/{petit}/terminer", data={"jeton": JETON, "envoye": "non"})
+    assert r.headers["Location"].endswith("/")
+    d = _depot(cfg)
+    statuts = {cid: d.obtenir(cid)["statut"] for cid in (gros, moyen, petit)}
+    d.fermer()
+    assert statuts == {gros: "inscrit", moyen: "pret", petit: "pret"}
+    assert "Mode enchaînement" not in client.get(f"/concours/{moyen}/participer").get_data(as_text=True)
+
+
 def test_checklist_bloque_gain_insuffisant(site):
     _, client, _, cfg, _ = site
     _consentir(client)

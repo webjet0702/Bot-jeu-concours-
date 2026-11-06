@@ -1,7 +1,8 @@
 {% extends "base.html" %}
-{% from "_macros.html" import jeton_champ with context %}
+{% from "_macros.html" import jeton_champ, bandeau_enchainement with context %}
 {% block titre %}Participer{% endblock %}
 {% block contenu %}
+{{ bandeau_enchainement(r, restants) }}
 <p><a href="{{ url_for('concours', cid=r.id) }}">← {{ r.nom }}</a></p>
 <div class="titre-page">
   <h1>Vérifications avant inscription</h1>

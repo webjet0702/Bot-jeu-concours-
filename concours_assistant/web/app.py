@@ -461,6 +461,55 @@ def creer_app(chemin_config: Path | None) -> Flask:
     def _checklists() -> dict:
         return dict(session.get("checklists", {}))
 
+    # Enchaînement : les concours « prêts » défilent un par un. Chacun garde SA checklist et TA
+    # validation ; l'outil ne fait que présenter le suivant (rien n'est envoyé à ta place).
+    def _passes() -> set[int]:
+        return {int(x) for x in session.get("enchainer_passes", [])}
+
+    def _prets_restants() -> list:
+        passes = _passes()
+        return [r for r in g.depot.lister([Statut.PRET.value]) if r["id"] not in passes]
+
+    def _restants() -> int | None:
+        return len(_prets_restants()) if session.get("enchainer") else None
+
+    def _arreter_enchainement() -> None:
+        session.pop("enchainer", None)
+        session.pop("enchainer_passes", None)
+
+    def _suivant_ou_fin():
+        restants = _prets_restants()
+        if not restants:
+            _arreter_enchainement()
+            flash("Plus aucun concours prêt : c'est fini pour aujourd'hui !", "ok")
+            return redirect(url_for("tableau"))
+        return redirect(url_for("participer", cid=restants[0]["id"]))
+
+    @app.post("/enchainer")
+    def enchainer():
+        session["enchainer"] = True
+        session["enchainer_passes"] = []
+        g.journal.evenement("enchainement_debut", prets=len(_prets_restants()))
+        return _suivant_ou_fin()
+
+    @app.post("/enchainer/passer/<int:cid>")
+    def enchainer_passer(cid: int):
+        validees = _checklists()
+        if validees.pop(str(cid), None):
+            session["checklists"] = validees
+            p = participations.pop(cid, None)
+            if p:
+                p.terminer(False)
+        if not session.get("enchainer"):
+            return redirect(url_for("concours", cid=cid))
+        session["enchainer_passes"] = sorted(_passes() | {cid})
+        return _suivant_ou_fin()
+
+    @app.post("/enchainer/arreter")
+    def enchainer_arreter():
+        _arreter_enchainement()
+        return redirect(url_for("tableau"))
+
     @app.get("/concours/<int:cid>/participer")
     def participer(cid: int):
         r = concours_ou_404(cid)
@@ -469,7 +518,7 @@ def creer_app(chemin_config: Path | None) -> Flask:
             "participer.html", r=r, automatiques=[p for p in points if p.ok is not None],
             manuels=[(i, p) for i, p in enumerate(points) if p.ok is None],
             bloquants=[p for p in points if p.ok is False],
-            prefill=r["mode_assistance"] == Mode.PREREMPLISSAGE.value, ecran=_ecran())
+            prefill=r["mode_assistance"] == Mode.PREREMPLISSAGE.value, ecran=_ecran(), restants=_restants())
 
     @app.post("/concours/<int:cid>/participer")
     def participer_valider(cid: int):
@@ -513,7 +562,8 @@ def creer_app(chemin_config: Path | None) -> Flask:
         if mode is None:  # pas de checklist validée : on y retourne
             return redirect(url_for("participer", cid=cid))
         return render_template("suivi.html", r=r, mode=mode, url=r["url_participation"] or r["url"],
-                               valeurs=g.cfg.profil.champs_transmissibles(), p=participations.get(cid))
+                               valeurs=g.cfg.profil.champs_transmissibles(), p=participations.get(cid),
+                               restants=_restants())
 
     @app.get("/concours/<int:cid>/suivi/etat")
     def suivi_etat(cid: int):
@@ -559,6 +609,9 @@ def creer_app(chemin_config: Path | None) -> Flask:
         services.enregistrer_resultat(g.depot, g.journal, r, mode, url, res, abandonner=abandonner)
         flash("Inscription enregistrée. Bonne chance !" if envoye else "Rien n'a été enregistré comme envoyé.",
               "ok" if envoye else "attention")
+        if session.get("enchainer"):
+            session["enchainer_passes"] = sorted(_passes() | {cid})  # jamais deux fois le même
+            return _suivant_ou_fin()
         return redirect(url_for("concours", cid=cid))
 
     # -------------------------------------------------------------- domaines
