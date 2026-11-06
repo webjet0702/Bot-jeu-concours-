@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% from "_macros.html" import jeton_champ with context %}
+{% block titre %}Participer{% endblock %}
+{% block contenu %}
+<p><a href="{{ url_for('concours', cid=r.id) }}">← {{ r.nom }}</a></p>
+<div class="titre-page">
+  <h1>Vérifications avant inscription</h1>
+  <p class="discret">{{ r.nom }} · {{ r.gain_principal_eur | eur }}</p>
+</div>
+
+<section class="carte">
+  <h2>Contrôles automatiques</h2>
+  <ul class="controles">
+    {% for p in automatiques %}
+      <li><span class="icone {{ 'icone-ok' if p.ok else 'icone-ko' }}" aria-hidden="true">{{ '✓' if p.ok else '✕' }}</span>
+        <span>{{ p.libelle }}{% if p.detail %} <span class="discret">({{ p.detail }})</span>{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+
+{% if bloquants %}
+  <div class="alerte alerte-danger">Participation impossible tant que les points marqués ✕ ne sont pas réglés.
+    <a href="{{ url_for('concours', cid=r.id) }}">Retour au concours</a></div>
+{% else %}
+<form method="post" class="carte pile">
+  {{ jeton_champ() }}
+  <h2>À confirmer par toi</h2>
+  {% for i, p in manuels %}
+    <label class="case"><input type="checkbox" name="confirme" value="{{ i }}" required> <span>{{ p.libelle }}</span></label>
+  {% endfor %}
+  {% if r.url_reglement %}<p class="petit"><a href="{{ r.url_reglement | lien_sur }}" target="_blank" rel="noopener noreferrer">Ouvrir le règlement ↗</a></p>{% endif %}
+
+  <h2 style="margin-top:18px">Comment ça va se passer</h2>
+  {% if prefill and ecran %}
+    <p>Une fenêtre <strong>Chromium</strong> va s'ouvrir sur ton ordinateur et remplir ton email (et les champs de ton profil sans ambiguïté). Elle s'arrête net si un CAPTCHA apparaît. <strong>Tu coches les cases et tu cliques sur « Valider » toi-même.</strong></p>
+    <label class="case"><input type="checkbox" name="manuel" value="1"> <span>Je préfère tout faire moi-même (mode manuel)</span></label>
+  {% else %}
+    <p>Mode <strong>manuel</strong> : tu ouvres la page du concours dans un nouvel onglet et tu remplis toi-même. L'outil te montre les infos à copier.</p>
+  {% endif %}
+  <button class="bouton bouton-principal bouton-large">C'est parti</button>
+</form>
+{% endif %}
+{% endblock %}

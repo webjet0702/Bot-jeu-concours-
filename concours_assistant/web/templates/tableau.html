@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pastille_statut, jeton_champ with context %}
+{% block titre %}Tableau de bord{% endblock %}
+{% block contenu %}
+{% if profil_incomplet %}
+  <div class="alerte alerte-attention">Commence par <a href="{{ url_for('configuration') }}">compléter ton profil</a> (email dédié aux concours et âge) : sans ça, l'outil ne peut pas trier correctement.</div>
+{% endif %}
+
+<section class="stats" aria-label="Résumé">
+  {% for cle, lib, cls in [('pret', 'Prêts', 'ok'), ('a_verifier', 'À vérifier', 'attention'), ('intervention_humaine', 'Intervention', 'danger'), ('inscrit', 'Inscrits', 'info')] %}
+    <a class="stat stat-{{ cls }}" href="{{ url_for('tableau', filtre=cle) }}">
+      <span class="stat-nombre">{{ compte.get(cle, 0) }}</span><span class="stat-libelle">{{ lib }}</span>
+    </a>
+  {% endfor %}
+</section>
+
+<section class="grille-2">
+  <div class="carte">
+    <h2>Chercher des concours</h2>
+    <p class="discret">Lit tes sources ({{ sources }}) puis analyse jusqu'à 20 concours : gain ≥ 100 €, règlement, arnaques, âge, pays. Compte quelques minutes : l'outil attend 10 s entre deux pages d'un même site.</p>
+    <form method="post" action="{{ url_for('chercher') }}" class="pile">
+      {{ jeton_champ() }}
+      {% if besoin_mdp %}
+        <label>Mot de passe d'application Gmail <span class="discret">(pour Google Alertes, jamais enregistré)</span>
+          <input type="password" name="mdp_imap" autocomplete="off"></label>
+      {% endif %}
+      <button class="bouton bouton-principal bouton-large" {{ 'disabled' if tache.en_cours }}>Chercher de nouveaux concours</button>
+    </form>
+    {% if compte.get('nouveau', 0) %}
+      <form method="post" action="{{ url_for('analyser') }}" style="margin-top:10px">
+        {{ jeton_champ() }}
+        <button class="bouton bouton-large" {{ 'disabled' if tache.en_cours }}>Analyser les {{ compte.get('nouveau') }} concours en attente</button>
+      </form>
+    {% endif %}
+  </div>
+  <div class="carte">
+    <h2>Ajouter un concours trouvé</h2>
+    <form method="post" action="{{ url_for('ajouter') }}" class="pile">
+      {{ jeton_champ() }}
+      <label>Lien du concours<input type="url" name="url" required placeholder="https://…" inputmode="url"></label>
+      <label>Nom <span class="discret">(facultatif)</span><input type="text" name="nom" maxlength="200"></label>
+      <button class="bouton bouton-large" {{ 'disabled' if tache.en_cours }}>Ajouter et analyser</button>
+    </form>
+  </div>
+</section>
+
+{% if tache.lignes or tache.en_cours %}
+  <section class="carte" id="tache" data-en-cours="{{ '1' if tache.en_cours else '0' }}">
+    <h2>{{ tache.nom }}
+      {% if tache.en_cours %}<span class="pastille pastille-attention">en cours…</span>
+      {% else %}<span class="pastille">terminée à {{ tache.termine_le }}</span>{% endif %}</h2>
+    <pre class="log" id="tache-log">{{ tache.lignes | join('\n') }}</pre>
+  </section>
+{% endif %}
+
+<nav class="onglets" aria-label="Filtrer">
+  {% for cle, lib, _ in filtres %}<a href="{{ url_for('tableau', filtre=cle) }}" class="{{ 'actif' if cle == filtre }}">{{ lib }}</a>{% endfor %}
+</nav>
+
+{% if rows %}
+<table class="liste">
+  <thead><tr><th>Concours</th><th class="num">Gain</th><th>Fin</th><th>Statut</th><th>Mode</th><th></th></tr></thead>
+  <tbody>
+  {% for r in rows %}
+    <tr>
+      <td data-label="Concours"><a class="nom" href="{{ url_for('concours', cid=r.id) }}">{{ r.nom }}</a>
+        <span class="discret petit">{{ (r.url_participation or r.url) | domaine }}</span></td>
+      <td class="num" data-label="Gain">{{ r.gain_principal_eur | eur }}</td>
+      <td data-label="Fin">{{ r.date_limite | date_fr }}</td>
+      <td data-label="Statut">{{ pastille_statut(r.statut) }}</td>
+      <td data-label="Mode">{{ LIBELLES_MODE.get(r.mode_assistance, '—') }}</td>
+      <td class="actions">
+        {% if r.statut == 'pret' %}<a class="bouton bouton-principal bouton-petit" href="{{ url_for('participer', cid=r.id) }}">Participer</a>
+        {% else %}<a class="bouton bouton-petit" href="{{ url_for('concours', cid=r.id) }}">Voir</a>{% endif %}
+      </td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+{% else %}
+  <div class="vide">
+    {% if filtre == 'actifs' %}Rien à traiter pour l'instant. Clique sur <strong>Chercher de nouveaux concours</strong> ou ajoute un lien.
+    {% else %}Aucun concours dans cette catégorie.{% endif %}
+  </div>
+{% endif %}
+{% endblock %}

@@ -19,7 +19,7 @@ def collecter_flux(flux: Flux, client: ClientPoli) -> list[ConcoursCandidat]:
     for entree in analyse.entries[:MAX_ENTREES_PAR_FLUX]:
         lien = entree.get("link")
         titre = entree.get("title")
-        if not lien or not titre:
+        if not lien or not titre or not lien.startswith(("http://", "https://")):
             continue
         morceaux = [entree.get("summary", "")]
         morceaux += [c.get("value", "") for c in entree.get("content", [])]

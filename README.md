@@ -26,15 +26,41 @@ un, il s'arrête, le note dans le journal et vous rend la main.
   son identité. Renseignez votre âge réel pour ne pas gagner un lot qu'on vous refusera.
 - **Gagner reste rare.** C'est un loisir, pas une source de revenus.
 
-## Installation
+## Le plus simple : le site (double-clic)
+
+1. Installe **Python 3.11 ou plus récent** depuis <https://www.python.org/downloads/>
+   (Windows : coche **« Add python.exe to PATH »** pendant l'installation).
+2. Sur GitHub : bouton vert **Code → Download ZIP**, puis décompresse le dossier.
+3. Double-clique sur :
+   - **Windows** : `Lancer-le-site.bat`
+   - **Mac** : `Lancer-le-site.command` (la première fois : clic droit → Ouvrir)
+
+La première fois, l'installation prend quelques minutes. Ensuite le site s'ouvre tout
+seul dans ton navigateur à l'adresse <http://127.0.0.1:8765/>. **Garde la fenêtre noire
+ouverte** tant que tu utilises le site (la fermer arrête le site).
+
+Le site fonctionne **uniquement sur ton ordinateur** (adresse 127.0.0.1) : tes données ne
+partent nulle part tant que tu ne cliques pas toi-même « Valider » sur un concours.
+
+| Page | Ce que tu y fais |
+|---|---|
+| **Concours** | Bouton « Chercher de nouveaux concours », ajout d'un lien, liste triée (prêts, à vérifier, inscrits…), bouton « Participer ». |
+| **Participer** | Contrôles automatiques + cases à cocher, puis : soit une fenêtre Chromium pré-remplit (sites autorisés), soit tu ouvres la page et copies ton email. Tu valides toi-même, puis « J'ai validé mon inscription ». |
+| **Mon profil** | Email dédié, âge, pays, seuil de gain, Google Alertes. |
+| **Sites** | Sites autorisés pour le pré-remplissage, sites bloqués après un défi anti-robot. |
+| **Journal** | Tout ce que l'outil a fait (y compris chaque arrêt sur CAPTCHA). |
+| **Mes données** | Télécharger, purger, retirer le consentement, tout effacer. |
+
+## Installation (ligne de commande)
 
 ```bash
 python -m venv .venv && source .venv/bin/activate     # Windows : .venv\Scripts\activate
 pip install -e ".[dev]"
 playwright install chromium                           # pour le pré-remplissage
+concours site                                         # ouvre le site local
 ```
 
-## Démarrage rapide
+## Démarrage rapide (ligne de commande)
 
 ```bash
 concours init                 # crée config.toml + allowlist.txt + base, demande le consentement
@@ -92,6 +118,7 @@ concours passent « à vérifier ».
 
 | Commande | Rôle |
 |---|---|
+| `site [--port 8765] [--sans-navigateur]` | Ouvre le site local (même logique, à la souris) |
 | `init` | Configuration, base, consentement |
 | `consentement [--retirer]` | Donner / retirer son consentement |
 | `collecter` | RSS + Google Alertes et newsletters (IMAP lecture seule) + allowlist |
@@ -115,4 +142,5 @@ pytest
 ```
 
 Les tests n'utilisent pas le réseau : le client HTTP, robots.txt, les défis anti-robot, la
-limitation de débit, l'extraction, la conformité, la base et le pré-remplissage sont simulés.
+limitation de débit, l'extraction, la conformité, la base, le pré-remplissage et le site
+(sécurité, consentement, parcours d'inscription) sont simulés.

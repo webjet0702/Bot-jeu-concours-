@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pastille_statut, jeton_champ with context %}
+{% block titre %}{{ r.nom }}{% endblock %}
+{% block contenu %}
+<p><a href="{{ url_for('tableau') }}">← Tous les concours</a></p>
+<div class="titre-page">
+  <h1>{{ r.nom }}</h1>
+  <p class="discret">{{ pastille_statut(r.statut) }} · mode {{ LIBELLES_MODE.get(r.mode_assistance, '—') | lower }} · {{ dom }}</p>
+</div>
+
+<div class="boutons" style="margin-bottom:16px">
+  {% if r.statut == 'pret' %}<a class="bouton bouton-principal" href="{{ url_for('participer', cid=r.id) }}">Participer</a>{% endif %}
+  <a class="bouton" href="{{ url | lien_sur }}" target="_blank" rel="noopener noreferrer">Ouvrir la page ↗</a>
+  {% if r.url_reglement %}<a class="bouton" href="{{ r.url_reglement | lien_sur }}" target="_blank" rel="noopener noreferrer">Lire le règlement ↗</a>{% endif %}
+</div>
+
+<section class="carte">
+  <dl class="faits">
+    <div class="fait"><dt>Gain principal</dt><dd>{{ r.gain_principal_eur | eur }}</dd></div>
+    <div class="fait"><dt>Dotation totale</dt><dd>{{ r.dotation_totale_eur | eur }}{% if infos.get('dotation_estimee') %} <span class="discret petit">(estimée)</span>{% endif %}</dd></div>
+    <div class="fait"><dt>Date limite</dt><dd>{{ r.date_limite | date_fr }}</dd></div>
+    <div class="fait"><dt>Âge minimum</dt><dd>{{ (r.age_minimum ~ ' ans') if r.age_minimum else 'non précisé' }}</dd></div>
+    <div class="fait"><dt>Pays</dt><dd>{{ infos.get('pays_autorises') | join(', ') if infos.get('pays_autorises') else 'non précisé' }}</dd></div>
+    <div class="fait"><dt>Source</dt><dd>{{ r.source }}</dd></div>
+    <div class="fait"><dt>Trouvé le</dt><dd>{{ r.date_decouverte | heure }}</dd></div>
+    {% if r.date_inscription %}<div class="fait"><dt>Inscrit le</dt><dd>{{ r.date_inscription | heure }}</dd></div>{% endif %}
+  </dl>
+</section>
+
+{% if motifs %}
+<section class="carte">
+  <h2>Pourquoi ce statut</h2>
+  <ul class="raisons">{% for m in motifs %}<li>{{ m }}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+
+{% if avertissements or infos.get('preuve_interdiction') %}
+<section class="carte">
+  <h2>À vérifier par toi</h2>
+  <ul class="raisons">{% for a in avertissements %}<li>{{ a }}</li>{% endfor %}</ul>
+  {% if infos.get('preuve_interdiction') %}
+    <p class="citation">Clause du règlement : « {{ infos.get('preuve_interdiction') }} »</p>
+  {% endif %}
+</section>
+{% endif %}
+
+{% if r.preuve %}
+<section class="carte">
+  <h2>Preuve d'inscription</h2>
+  {% if image %}<img class="capture" src="{{ image }}" alt="Capture de la page après inscription">{% else %}<p>{{ r.preuve }}</p>{% endif %}
+</section>
+{% endif %}
+
+{% if bloque %}
+<section class="alerte alerte-danger">
+  <strong>Site bloqué :</strong> {{ bloque }}. L'outil ne touche plus à {{ dom }} tant que tu n'as pas vérifié toi-même.
+  <form method="post" action="{{ url_for('domaine_action', action='debloquer') }}" class="en-ligne">
+    {{ jeton_champ() }}<input type="hidden" name="domaine" value="{{ dom }}"><input type="hidden" name="retour" value="{{ request.path }}">
+    <button class="bouton bouton-petit">J'ai vérifié, débloquer</button>
+  </form>
+</section>
+{% endif %}
+
+{% if r.statut != 'inscrit' %}
+<details class="carte">
+  <summary>Corriger les informations</summary>
+  <form method="post" action="{{ url_for('corriger', cid=r.id) }}" class="pile">
+    {{ jeton_champ() }}
+    <div class="champs-2">
+      <label>Valeur du lot principal (€)<input type="text" name="valeur" inputmode="decimal" placeholder="{{ r.gain_principal_eur or '' }}"></label>
+      <label>Dotation totale (€)<input type="text" name="dotation" inputmode="decimal"></label>
+      <label>Date limite<input type="date" name="date_limite" value="{{ r.date_limite or '' }}"></label>
+      <label>Âge minimum <span class="discret">(0 = aucun)</span><input type="number" name="age_min" min="0" max="25"></label>
+    </div>
+    <label>Lien du règlement que tu as lu<input type="url" name="reglement" placeholder="https://…"></label>
+    <button class="bouton">Enregistrer et réévaluer</button>
+  </form>
+</details>
+
+<details class="carte" {{ 'open' if r.statut in ('a_verifier', 'intervention_humaine') }}>
+  <summary>Je l'ai vérifié moi-même</summary>
+  {% if r.statut == 'exclu' %}<p class="alerte alerte-attention">Ce concours a été exclu par une règle (voir ci-dessus). Les contrôles importants (gain ≥ 100 €, date, HTTPS, blocage) seront quand même revérifiés avant l'inscription.</p>{% endif %}
+  <form method="post" action="{{ url_for('statut', cid=r.id) }}" class="pile">
+    {{ jeton_champ() }}<input type="hidden" name="nouveau" value="pret">
+    <label>Ce que tu as vérifié<input type="text" name="motif" required maxlength="300" placeholder="ex. règlement lu, organisateur officiel, gain 300 €"></label>
+    <button class="bouton bouton-principal">Marquer comme prêt</button>
+  </form>
+</details>
+
+<details class="carte">
+  <summary>Autres actions</summary>
+  <div class="pile">
+    <form method="post" action="{{ url_for('reanalyser', cid=r.id) }}" class="en-ligne">{{ jeton_champ() }}<button class="bouton">Relancer l'analyse</button></form>
+    <form method="post" action="{{ url_for('statut', cid=r.id) }}" class="en-ligne" data-confirmer="Abandonner ce concours ?">
+      {{ jeton_champ() }}<input type="hidden" name="nouveau" value="abandonne"><input type="hidden" name="motif" value="abandonné depuis le site">
+      <button class="bouton bouton-danger">Abandonner ce concours</button>
+    </form>
+    <h3>Pré-remplissage sur {{ dom }}</h3>
+    {% if autorise %}
+      <p class="discret">Autorisé.</p>
+      <form method="post" action="{{ url_for('domaine_action', action='retirer') }}">
+        {{ jeton_champ() }}<input type="hidden" name="domaine" value="{{ dom }}"><input type="hidden" name="retour" value="{{ request.path }}">
+        <button class="bouton bouton-petit">Retirer l'autorisation</button>
+      </form>
+    {% else %}
+      <p class="discret">N'autorise ce site que si ses conditions d'utilisation ou son règlement <strong>permettent</strong> l'aide automatisée à la saisie. Sinon, reste en mode manuel.</p>
+      <form method="post" action="{{ url_for('domaine_action', action='autoriser') }}" class="pile">
+        {{ jeton_champ() }}<input type="hidden" name="domaine" value="{{ dom }}"><input type="hidden" name="retour" value="{{ request.path }}">
+        <label>Justification <span class="discret">(cite l'article qui l'autorise)</span><input type="text" name="justification" required minlength="15" maxlength="300"></label>
+        <button class="bouton bouton-petit">Autoriser le pré-remplissage</button>
+      </form>
+    {% endif %}
+  </div>
+</details>
+{% endif %}
+{% endblock %}

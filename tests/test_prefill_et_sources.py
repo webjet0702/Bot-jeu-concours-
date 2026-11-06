@@ -91,3 +91,9 @@ def test_alerte_google_deballe_les_liens_et_ignore_la_gestion():
     assert [c.url for c in liens] == ["https://www.marque.fr/grand-jeu-noel", "https://blog.exemple.fr/article-voyage"]
     assert all(c.source == "alerte_google" for c in liens)
     assert deballer_lien("https://exemple.fr/url?url=https://x.fr") == "https://exemple.fr/url?url=https://x.fr"
+
+
+def test_champ_ambigu_ignore_meme_si_le_profil_n_a_pas_de_nom():
+    # Bug trouvé en test réel : sans « nom » dans le profil, « Nom et prénom » volait le prénom.
+    descr = [champ(0, type="email"), champ(1, name="first_name"), champ(2, label="Nom et prénom")]
+    assert associer_champs(descr, {"email": "a@b.fr", "prenom": "Léa"}) == [(0, "email"), (1, "prenom")]

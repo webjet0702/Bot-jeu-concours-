@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block titre %}{{ titre }}{% endblock %}
+{% block contenu %}
+<div class="titre-page"><h1>{{ titre }}</h1></div>
+<section class="carte pile">
+  <p>{{ message }}</p>
+  {% if chemin %}<p class="discret">Corrige le fichier <code>{{ chemin }}</code> avec le Bloc-notes, puis recharge la page.</p>{% endif %}
+  <a class="bouton" href="{{ url_for('tableau') }}">Retour</a>
+</section>
+{% endblock %}

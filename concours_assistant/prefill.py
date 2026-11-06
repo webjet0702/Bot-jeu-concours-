@@ -103,10 +103,12 @@ def associer_champs(descripteurs: list[dict], valeurs: dict[str, str]) -> list[t
         if (champ.get("type") in TYPES_IGNORES or not champ.get("visible") or champ.get("desactive")
                 or champ.get("rempli")):
             continue
-        cles = cles_possibles(champ) & set(valeurs)
+        cles = cles_possibles(champ)
         if len(cles) != 1:
-            continue  # aucun ou plusieurs sens possibles (ex. « Nom et prénom ») => humain
-        candidats.setdefault(cles.pop(), []).append(champ["index"])
+            continue  # aucun ou plusieurs sens possibles (ex. « Nom et prénom ») => humain, quel que soit le profil
+        cle = cles.pop()
+        if cle in valeurs:  # minimisation : uniquement les champs renseignés dans le profil
+            candidats.setdefault(cle, []).append(champ["index"])
     plan = []
     for cle, index in candidats.items():
         if len(index) == 1 or cle == "email":  # « email » + « confirmez l'email » : même valeur
@@ -157,7 +159,8 @@ INSTRUCTIONS = """
 
 def preremplir_et_attendre(url: str, valeurs: dict[str, str], *, concours_id: int, journal: Journal,
                            dossier_preuves: Path, domaine_autorise: Callable[[str], bool],
-                           demander: Callable[[str], str] = input) -> ResultatParticipation:
+                           demander: Callable[[str], str] = input,
+                           notifier: Callable[[str], None] = print) -> ResultatParticipation:
     from playwright.sync_api import Error as ErreurPlaywright
     from playwright.sync_api import sync_playwright
 
@@ -168,6 +171,7 @@ def preremplir_et_attendre(url: str, valeurs: dict[str, str], *, concours_id: in
         navigateur = p.chromium.launch(headless=False)  # toujours visible ; aucune option furtive
         try:
             page = navigateur.new_page()
+            notifier("Navigateur ouvert, chargement de la page du concours…")
             page.goto(url, wait_until="domcontentloaded", timeout=45_000)
             arret = detecter_sur_page(page)
             if arret is None:
@@ -190,11 +194,11 @@ def preremplir_et_attendre(url: str, valeurs: dict[str, str], *, concours_id: in
                 journal.evenement("captcha_detecte" if arret.type == "captcha_formulaire" else "defi_anti_bot",
                                   concours_id=concours_id, domaine=domaine(url), fournisseur=arret.fournisseur,
                                   action="automatisation arrêtée, main rendue à l'humain")
-                print(f"\n⛔ {arret.fournisseur} détecté : l'automatisation est ARRÊTÉE. "
-                      "Terminez vous-même dans le navigateur (ou abandonnez).")
+                notifier(f"⛔ {arret.fournisseur} détecté : l'automatisation est ARRÊTÉE. "
+                         "Terminez vous-même dans le navigateur (ou abandonnez).")
             journal.evenement("preremplissage_termine", concours_id=concours_id, domaine=domaine(url),
                               champs=sorted(set(remplis)), arret=bool(arret))
-            print(INSTRUCTIONS.format(champs=", ".join(sorted(set(remplis))) or "aucun"))
+            notifier(INSTRUCTIONS.format(champs=", ".join(sorted(set(remplis))) or "aucun"))
             demander("\nAppuyez sur Entrée quand vous avez terminé (envoyé ou abandonné)… ")
             if not _oui(demander("Avez-vous VOUS-MÊME validé et l'inscription est-elle envoyée ? [o/N] ")):
                 return ResultatParticipation(False, arret=arret, champs_remplis=tuple(remplis))

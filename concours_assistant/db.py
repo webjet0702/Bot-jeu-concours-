@@ -91,6 +91,10 @@ class Depot:
                 " date_limite IS NULL, date_limite ASC, id ASC")
         return self.conn.execute(sql, params).fetchall()
 
+    def compter_par_statut(self) -> dict[str, int]:
+        return {r["statut"]: r["n"] for r in
+                self.conn.execute("SELECT statut, COUNT(*) AS n FROM concours GROUP BY statut")}
+
     def trouver_par_url_participation(self, url_can: str, exclure_id: int) -> int | None:
         row = self.conn.execute(
             "SELECT id FROM concours WHERE (url_participation_canonique = ? OR url_canonique = ?) AND id != ? "

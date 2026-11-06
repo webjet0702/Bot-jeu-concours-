@@ -45,7 +45,9 @@ flowchart TD
 | `db.py` + `schema.sql` | SQLite : concours, domaines, consentements, journal. |
 | `journal.py` | Journal d'audit, données personnelles masquées. |
 | `vie_privee.py` | Consentement, export, purge. |
+| `services.py` | Opérations partagées par la ligne de commande et le site (collecte, analyse, correction, enregistrement). |
 | `cli.py` | Commandes `concours …`. |
+| `web/` | Site **local** Flask (`concours site`) : écoute sur 127.0.0.1 uniquement, refuse tout autre nom d'hôte, jeton anti-CSRF sur chaque formulaire, échappement HTML. Pré-remplissage dans un fil dédié (Chromium visible), checklist obligatoire avant la page d'inscription. Aucune route ne contourne les règles. |
 
 ## 3. Stack recommandée
 
@@ -58,7 +60,8 @@ flowchart TD
 | PDF (règlements) | `pypdf` | Beaucoup de règlements sont en PDF. |
 | Navigateur | **Playwright**, `headless=False` en dur | Attente automatique des éléments, inspection des iframes. Selenium convient aussi, avec les mêmes règles : mode visible, aucune option furtive, aucun clic d'envoi. |
 | Stockage | SQLite | Local, un seul fichier, facile à purger/exporter. |
-| Tests | `pytest` | 86 tests, sans réseau. |
+| Interface | Flask (local) | Site à la souris, sans dépendance JavaScript externe. |
+| Tests | `pytest` | 99 tests, sans réseau. |
 
 **Bannis volontairement** : `undetected-chromedriver`, `playwright-stealth`,
 `puppeteer-extra-plugin-stealth`, rotation de proxies, faux User-Agent, modification de

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import jeton_champ with context %}
+{% block titre %}Consentement{% endblock %}
+{% block contenu %}
+<div class="titre-page"><h1>Avant de commencer</h1></div>
+<section class="carte pile">
+  <pre class="texte-long">{{ texte }}</pre>
+  {% if actif %}
+    <div class="alerte alerte-ok">Tu as déjà donné ton consentement. <a href="{{ url_for('tableau') }}">Aller au tableau de bord</a></div>
+  {% else %}
+    <form method="post" class="boutons">
+      {{ jeton_champ() }}
+      <button class="bouton bouton-principal" name="decision" value="accepter">J'ai lu et j'accepte</button>
+      <button class="bouton" name="decision" value="refuser">Je refuse</button>
+    </form>
+  {% endif %}
+</section>
+{% endblock %}

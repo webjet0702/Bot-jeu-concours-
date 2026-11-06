@@ -144,7 +144,7 @@ def checklist_avant_inscription(row: sqlite3.Row, profil: Profil, filtres: Filtr
                       depot.consentement_actif(version_consentement)),
         PointControle("Concours au statut « prêt »", row["statut"] == Statut.PRET.value, row["statut"]),
         PointControle("Pas déjà inscrit", row["date_inscription"] is None),
-        PointControle(f"Gain >= {filtres.valeur_minimale_eur:.0f} €",
+        PointControle(f"Gain ≥ {filtres.valeur_minimale_eur:.0f} €",
                       gain is not None and gain >= filtres.valeur_minimale_eur,
                       f"{gain:.0f} €" if gain is not None else "inconnu"),
         PointControle("Domaine sans blocage ni défi anti-robot en cours", depot.domaine_bloque(d) is None,

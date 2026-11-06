@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% from "_macros.html" import jeton_champ with context %}
+{% block titre %}Mon profil{% endblock %}
+{% block contenu %}
+<div class="titre-page">
+  <h1>Mon profil</h1>
+  <p class="discret">Enregistré seulement sur ton ordinateur ({{ cfg.racine }}/config.toml).</p>
+</div>
+<form method="post" class="pile">
+  {{ jeton_champ() }}
+  <section class="carte pile">
+    <h2>Ce qui peut être pré-rempli</h2>
+    <p class="discret">Ne remplis que le nécessaire : seuls ces champs seront proposés aux sites. Utilise une adresse email <strong>dédiée</strong> aux concours, car beaucoup d'organisateurs la partagent avec des « partenaires ».</p>
+    <label>Email dédié aux concours<input type="email" name="email" value="{{ cfg.profil.email }}" required></label>
+    <div class="champs-2">
+      <label>Prénom <span class="discret">(facultatif)</span><input type="text" name="prenom" value="{{ cfg.profil.prenom }}"></label>
+      <label>Nom <span class="discret">(facultatif)</span><input type="text" name="nom" value="{{ cfg.profil.nom }}"></label>
+      <label>Code postal <span class="discret">(facultatif)</span><input type="text" name="code_postal" value="{{ cfg.profil.code_postal }}"></label>
+      <label>Ville <span class="discret">(facultatif)</span><input type="text" name="ville" value="{{ cfg.profil.ville }}"></label>
+      <label>Téléphone <span class="discret">(facultatif)</span><input type="text" name="telephone" value="{{ cfg.profil.telephone }}"></label>
+      <label>Date de naissance <span class="discret">(facultatif)</span><input type="date" name="date_naissance" value="{{ cfg.profil.date_naissance }}"></label>
+    </div>
+  </section>
+
+  <section class="carte pile">
+    <h2>Pour le tri (jamais envoyé)</h2>
+    <div class="champs-2">
+      <label>Ton âge<input type="number" name="age" min="0" max="120" value="{{ cfg.profil.age or '' }}" required></label>
+      <label>Pays de résidence
+        <select name="pays_residence">
+          {% for code, nom in [('FR','France'),('BE','Belgique'),('CH','Suisse'),('LU','Luxembourg'),('MC','Monaco'),('CA','Canada')] %}
+            <option value="{{ code }}" {{ 'selected' if cfg.profil.pays_residence == code }}>{{ nom }}</option>
+          {% endfor %}
+        </select></label>
+      <label>Gain minimal (€) <span class="discret">(100 minimum)</span><input type="number" name="valeur_minimale_eur" min="100" step="1" value="{{ cfg.filtres.valeur_minimale_eur | int }}"></label>
+      <label>Le gain compté
+        <select name="critere_valeur">
+          <option value="lot_principal" {{ 'selected' if cfg.filtres.critere_valeur == 'lot_principal' }}>le meilleur lot</option>
+          <option value="dotation_totale" {{ 'selected' if cfg.filtres.critere_valeur == 'dotation_totale' }}>la somme de tous les lots</option>
+        </select></label>
+      <label>Ignorer les concours qui finissent dans moins de… (jours)<input type="number" name="jours_restants_minimum" min="0" max="60" value="{{ cfg.filtres.jours_restants_minimum }}"></label>
+    </div>
+  </section>
+
+  <section class="carte pile">
+    <h2>Google Alertes</h2>
+    <p class="discret">Google surveille le web pour toi et t'envoie les nouveaux concours par email ; l'outil lit ces emails (lecture seule). Mode d'emploi : section « Surveiller tout le web avec Google Alertes » du README.</p>
+    <label class="case"><input type="checkbox" name="newsletter_active" value="1" {{ 'checked' if cfg.collecte.newsletter.active }}> <span>Lire mes Google Alertes et newsletters</span></label>
+    <div class="champs-2">
+      <label>Adresse Gmail<input type="email" name="newsletter_utilisateur" value="{{ cfg.collecte.newsletter.utilisateur }}"></label>
+      <label>Libellé Gmail<input type="text" name="newsletter_dossier" value="{{ cfg.collecte.newsletter.dossier }}"></label>
+    </div>
+    <p class="discret petit">Le mot de passe d'application n'est jamais enregistré : il est demandé à chaque recherche.</p>
+  </section>
+  <button class="bouton bouton-principal">Enregistrer</button>
+</form>
+{% endblock %}

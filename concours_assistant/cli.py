@@ -10,18 +10,13 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from .analyse import AReporter, analyser, enregistrer_decision
+from . import services
 from .config import Config, ErreurConfig, charger_config, modele_config
-from .conformite import checklist_avant_inscription, evaluer
-from .db import BLOCAGE_HUMAIN, Depot, maintenant
-from .detection import DEFI_ACCES
-from .http_poli import ClientPoli, ErreurAcces, QuotaAtteint
+from .conformite import checklist_avant_inscription
+from .db import Depot
 from .journal import Journal
-from .models import Contexte, InfosExtraites, Mode, Statut
+from .models import Mode, Statut
 from .prefill import affichage_disponible, participation_manuelle, preremplir_et_attendre
-from .sources.allowlist import lire_allowlist
-from .sources.newsletter import collecter_newsletters
-from .sources.rss import collecter_flux
 from .urls import domaine
 from .vie_privee import VERSION_CONSENTEMENT, exporter, purger_anciens, purger_tout, texte_consentement
 
@@ -30,6 +25,18 @@ MODELE_ALLOWLIST = """\
 # N'ajoutez que des concours que vous avez trouvés vous-même.
 # https://www.exemple-marque.fr/jeu-concours-noel | Grand jeu de Noël Exemple
 """
+
+
+def preparer_fichiers(chemin_config: Path) -> Config:
+    """Crée config.toml et allowlist.txt s'ils n'existent pas, puis charge la configuration."""
+    if not chemin_config.exists():
+        chemin_config.write_text(modele_config(), encoding="utf-8")
+        print(f"✓ {chemin_config} créé : renseignez au minimum `email` et `age` dans [profil].")
+    cfg = charger_config(chemin_config)
+    if not cfg.chemin_allowlist.exists():
+        cfg.chemin_allowlist.write_text(MODELE_ALLOWLIST, encoding="utf-8")
+    return cfg
+
 
 STATUTS_ACTIFS = [Statut.PRET.value, Statut.A_VERIFIER.value, Statut.INTERVENTION_HUMAINE.value]
 
@@ -54,14 +61,7 @@ class Contexte_CLI:
 
 
 def cmd_init(args) -> int:
-    chemin = Path(args.config)
-    if not chemin.exists():
-        chemin.write_text(modele_config(), encoding="utf-8")
-        print(f"✓ {chemin} créé : renseignez au minimum `email` et `age` dans [profil].")
-    cfg = charger_config(chemin)
-    if not cfg.chemin_allowlist.exists():
-        cfg.chemin_allowlist.write_text(MODELE_ALLOWLIST, encoding="utf-8")
-        print(f"✓ {cfg.chemin_allowlist} créé.")
+    cfg = preparer_fichiers(Path(args.config))
     depot = Depot(cfg.chemin_base)
     print(f"✓ base de données : {cfg.chemin_base}")
     if not depot.consentement_actif(VERSION_CONSENTEMENT):
@@ -94,40 +94,8 @@ def cmd_consentement(args) -> int:
 def cmd_collecter(args) -> int:
     c = Contexte_CLI(args)
     c.exiger_consentement()
-    client = ClientPoli(c.cfg.reseau, c.depot, c.journal)
-    candidats = []
-    for flux in c.cfg.collecte.flux:
-        try:
-            trouves = collecter_flux(flux, client)
-            candidats += trouves
-            print(f"  flux « {flux.nom} » : {len(trouves)} entrée(s)")
-        except QuotaAtteint as e:
-            print(f"  ⚠ {e.message}")
-            if e.global_:
-                break
-        except ErreurAcces as e:
-            print(f"  ⚠ flux « {flux.nom} » ignoré : {e.message}")
-            c.journal.evenement("flux_ignore", domaine=domaine(flux.url), raison=e.message)
-    allow = lire_allowlist(c.cfg.chemin_allowlist)
-    candidats += allow
-    print(f"  allowlist : {len(allow)} URL(s)")
-    nl = c.cfg.collecte.newsletter
-    if nl.active:
-        mdp = os.environ.get("CONCOURS_IMAP_MDP")
-        if not mdp:
-            print("  ⚠ newsletter : variable d'environnement CONCOURS_IMAP_MDP absente, ignorée")
-        else:
-            try:
-                trouves = collecter_newsletters(nl, mdp)
-                candidats += trouves
-                print(f"  newsletters : {len(trouves)} lien(s)")
-            except Exception as e:  # IMAP indisponible : on continue sans
-                print(f"  ⚠ newsletter : {type(e).__name__}: {e}")
-                c.journal.evenement("newsletter_erreur", erreur=type(e).__name__)
-
-    nouveaux = sum(1 for cand in candidats if c.depot.ajouter_concours(cand) is not None)
-    c.journal.evenement("collecte", candidats=len(candidats), nouveaux=nouveaux, doublons=len(candidats) - nouveaux)
-    print(f"✓ {nouveaux} nouveau(x) concours, {len(candidats) - nouveaux} doublon(s) ignoré(s).")
+    services.collecter_tout(c.cfg, c.depot, c.journal, os.environ.get("CONCOURS_IMAP_MDP"),
+                            log=lambda m: print(f"  {m}"))
     print("  Étape suivante : `concours analyser`")
     return 0
 
@@ -135,27 +103,9 @@ def cmd_collecter(args) -> int:
 def cmd_analyser(args) -> int:
     c = Contexte_CLI(args)
     c.exiger_consentement()
-    client = ClientPoli(c.cfg.reseau, c.depot, c.journal)
-    if args.id:
-        rows = [r for r in (c.depot.obtenir(i) for i in args.id) if r is not None]
-    else:
-        statuts = [Statut.NOUVEAU.value] + ([Statut.ERREUR.value] if args.reessayer else [])
-        rows = c.depot.lister(statuts)[: args.limite]
-    if not rows:
-        print("Rien à analyser.")
-        return 0
-    for row in rows:
-        try:
-            d = analyser(row, client=client, depot=c.depot, journal=c.journal, cfg=c.cfg, aujourd_hui=c.aujourd_hui)
-        except AReporter as e:
-            print(f"  #{row['id']} reporté : {e}")
-            if e.global_:
-                break
-            continue
-        print(f"  #{row['id']:<4} {d.statut.value:<21} {d.mode.value:<15} {row['nom'][:50]}")
-        for m in d.motifs[:3]:
-            print(f"         - {m}")
-    print("✓ Analyse terminée. `concours lister` pour voir les concours prêts.")
+    services.analyser_tout(c.cfg, c.depot, c.journal, log=lambda m: print(f"  {m}"), ids=args.id,
+                           limite=args.limite, reessayer=args.reessayer, aujourd_hui=c.aujourd_hui)
+    print("  `concours lister` pour voir les concours prêts.")
     return 0
 
 
@@ -245,21 +195,13 @@ def cmd_participer(args) -> int:
             print(f"⚠ Pré-remplissage impossible ({type(e).__name__}: {e}).\n"
                   "  Installez le navigateur (`playwright install chromium`) ou relancez avec --manuel.")
             return 1
-        if res.arret and res.arret.type == DEFI_ACCES:
-            c.depot.bloquer_domaine(domaine(url), BLOCAGE_HUMAIN, f"défi anti-robot ({res.arret.fournisseur})")
     else:
         res = participation_manuelle(url, valeurs)
 
-    if res.envoye:
-        c.depot.mettre_a_jour(r["id"], statut=Statut.INSCRIT.value, date_inscription=maintenant(), preuve=res.preuve)
-        c.journal.evenement("inscription_confirmee", concours_id=r["id"], domaine=domaine(url), mode=mode.value,
-                            preuve=res.preuve)
-        print(f"✓ Inscription enregistrée (preuve : {res.preuve}).")
-    else:
-        c.journal.evenement("inscription_non_envoyee", concours_id=r["id"])
-        if _oui("Abandonner définitivement ce concours ? [o/N] "):
-            c.depot.mettre_a_jour(r["id"], statut=Statut.ABANDONNE.value)
-        print("Rien n'a été enregistré comme envoyé.")
+    abandonner = not res.envoye and _oui("Abandonner définitivement ce concours ? [o/N] ")
+    services.enregistrer_resultat(c.depot, c.journal, r, mode, url, res, abandonner=abandonner)
+    print(f"✓ Inscription enregistrée (preuve : {res.preuve})." if res.envoye
+          else "Rien n'a été enregistré comme envoyé.")
     return 0
 
 
@@ -270,31 +212,16 @@ def cmd_corriger(args) -> int:
     if r is None:
         print("Concours introuvable.")
         return 1
-    cond = json.loads(r["conditions"] or "{}")
-    infos = InfosExtraites.depuis_dict(cond.get("infos", {}))
-    ctx = Contexte.depuis_dict(cond.get("contexte", {}))
-    modifs = {}
-    if args.valeur is not None:
-        infos.gain_principal_eur = modifs["gain_principal_eur"] = args.valeur
-    if args.dotation is not None:
-        infos.dotation_totale_eur = modifs["dotation_totale_eur"] = args.dotation
-        infos.dotation_estimee = False
-    if args.date_limite:
-        infos.date_limite = date.fromisoformat(args.date_limite)
-        modifs["date_limite"] = args.date_limite
-    if args.age_min is not None:
-        infos.age_minimum = modifs["age_minimum"] = args.age_min or None
-    if args.reglement:
-        infos.url_reglement = modifs["url_reglement"] = args.reglement
-        ctx.reglement_trouve = ctx.reglement_lu = True
-    if not modifs:
+    try:
+        d = services.corriger(c.cfg, c.depot, c.journal, r, valeur=args.valeur, dotation=args.dotation,
+                              date_limite=args.date_limite, age_min=args.age_min, reglement=args.reglement,
+                              aujourd_hui=c.aujourd_hui)
+    except ValueError as e:
+        print(f"Erreur : {e}")
+        return 1
+    if d is None:
         print("Aucune correction fournie.")
         return 1
-    url = r["url_participation"] or r["url"]
-    ctx.domaine_automatisation_autorisee = c.depot.domaine_autorise(domaine(url))
-    d = evaluer(infos, ctx, c.cfg.profil, c.cfg.filtres, c.aujourd_hui)
-    enregistrer_decision(c.depot, r["id"], infos, ctx, d, url)
-    c.journal.evenement("correction_manuelle", concours_id=r["id"], champs=modifs, statut=d.statut.value)
     print(f"✓ #{r['id']} → {d.statut.value} ({d.mode.value})")
     for m in d.motifs:
         print(f"   - {m}")
@@ -307,21 +234,23 @@ def cmd_statut(args) -> int:
     if r is None:
         print("Concours introuvable.")
         return 1
-    if r["statut"] == Statut.INSCRIT.value:
-        print("Déjà inscrit : statut non modifiable.")
+    if args.nouveau == Statut.PRET.value and r["statut"] == Statut.EXCLU.value:
+        print("⚠ Ce concours avait été EXCLU par une règle (voir `concours voir`). "
+              "Les contrôles durs (gain, date, HTTPS, blocage) restent appliqués à l'inscription.")
+    try:
+        services.forcer_statut(c.depot, c.journal, r, args.nouveau, args.motif)
+    except ValueError as e:
+        print(f"Erreur : {e}")
         return 1
-    champs = {"statut": args.nouveau}
-    if args.nouveau == Statut.PRET.value:
-        if r["statut"] == Statut.EXCLU.value:
-            print("⚠ Ce concours avait été EXCLU par une règle (voir `concours voir`). "
-                  "Les contrôles durs (gain, date, HTTPS, blocage) restent appliqués à l'inscription.")
-        if r["mode_assistance"] in (None, Mode.ABSTENTION.value):
-            champs["mode_assistance"] = Mode.MANUEL.value
-    c.depot.mettre_a_jour(r["id"], **champs)
-    c.journal.evenement("statut_force", concours_id=r["id"], ancien=r["statut"], nouveau=args.nouveau,
-                        motif=args.motif)
     print(f"✓ #{r['id']} : {r['statut']} → {args.nouveau}")
     return 0
+
+
+def cmd_site(args) -> int:
+    from .web import lancer_site
+
+    cfg = preparer_fichiers(Path(args.config))
+    return lancer_site(Path(args.config), cfg, port=args.port, ouvrir=not args.sans_navigateur)
 
 
 def cmd_domaine(args) -> int:
@@ -396,6 +325,10 @@ def construire_parseur() -> argparse.ArgumentParser:
     p.add_argument("-v", "--verbeux", action="store_true")
     sp = p.add_subparsers(dest="commande", required=True)
 
+    s = sp.add_parser("site", help="ouvrir l'interface web locale (http://127.0.0.1)")
+    s.add_argument("--port", type=int, default=8765)
+    s.add_argument("--sans-navigateur", action="store_true", help="ne pas ouvrir le navigateur automatiquement")
+    s.set_defaults(f=cmd_site)
     sp.add_parser("init", help="créer la configuration, la base et recueillir le consentement").set_defaults(f=cmd_init)
     s = sp.add_parser("consentement", help="donner ou retirer son consentement")
     s.add_argument("--retirer", action="store_true")

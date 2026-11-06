@@ -1,0 +1,67 @@
+{% extends "base.html" %}
+{% from "_macros.html" import jeton_champ with context %}
+{% block titre %}Inscription en cours{% endblock %}
+{% block contenu %}
+<div class="titre-page">
+  <h1>Inscription : {{ r.nom }}</h1>
+  <p class="discret">{{ r.gain_principal_eur | eur }} · {{ url | domaine }}</p>
+</div>
+
+{% if mode == 'preremplissage' %}
+  <section class="carte" id="suivi-direct" data-etat="{{ url_for('suivi_etat', cid=r.id) }}">
+    <h2>En direct</h2>
+    <ul class="messages-direct" id="suivi-messages"><li>Ouverture de la fenêtre Chromium…</li></ul>
+    <div class="alerte alerte-danger" id="suivi-erreur" hidden style="margin-top:12px">
+      Le pré-remplissage n'a pas pu démarrer : <span data-texte></span>
+      <form method="post" action="{{ url_for('basculer_manuel', cid=r.id) }}" style="margin-top:8px">
+        {{ jeton_champ() }}<button class="bouton">Continuer en mode manuel</button>
+      </form>
+    </div>
+  </section>
+  <section class="carte">
+    <h2>À toi de jouer dans la fenêtre Chromium</h2>
+    <ol class="etapes">
+      <li>Vérifie les champs pré-remplis et complète ce qui manque.</li>
+      <li>Coche <strong>toi-même</strong> les cases (règlement…). Ne coche « offres partenaires » que si tu le veux vraiment.</li>
+      <li>Si un CAPTCHA est présent, c'est à toi de le faire.</li>
+      <li>Clique <strong>toi-même</strong> sur « Valider » / « Participer », puis reviens ici.</li>
+    </ol>
+  </section>
+{% else %}
+  <section class="carte">
+    <ol class="etapes">
+      <li><strong>Ouvre la page du concours</strong><br>
+        <a class="bouton bouton-principal" style="margin-top:8px" href="{{ url | lien_sur }}" target="_blank" rel="noopener noreferrer">Ouvrir la page ↗</a></li>
+      <li><strong>Remplis le formulaire</strong> avec les infos de ton profil :
+        {% for cle, valeur in valeurs.items() %}
+          <div class="donnee"><span class="discret petit" style="width:110px">{{ cle | replace('_', ' ') }}</span><code>{{ valeur }}</code>
+            <button type="button" class="bouton bouton-petit" data-copier="{{ valeur }}">Copier</button></div>
+        {% else %}
+          <p class="alerte alerte-attention">Ton profil est vide : <a href="{{ url_for('configuration') }}">ajoute ton email</a>.</p>
+        {% endfor %}
+      </li>
+      <li><strong>Coche toi-même les cases</strong> (règlement…), fais le CAPTCHA s'il y en a un.</li>
+      <li><strong>Clique sur « Valider »</strong> sur le site du concours, puis reviens ici.</li>
+    </ol>
+  </section>
+{% endif %}
+
+<section class="grille-2">
+  <form method="post" action="{{ url_for('terminer', cid=r.id) }}" class="carte pile">
+    {{ jeton_champ() }}<input type="hidden" name="envoye" value="oui">
+    <h2>C'est envoyé ✓</h2>
+    {% if mode != 'preremplissage' %}
+      <label>Preuve <span class="discret">(facultatif, ex. « email de confirmation reçu »)</span><input type="text" name="note" maxlength="300"></label>
+    {% else %}
+      <p class="discret petit">Une capture de la page sera gardée comme preuve.</p>
+    {% endif %}
+    <button class="bouton bouton-principal bouton-large">J'ai validé mon inscription</button>
+  </form>
+  <form method="post" action="{{ url_for('terminer', cid=r.id) }}" class="carte pile">
+    {{ jeton_champ() }}<input type="hidden" name="envoye" value="non">
+    <h2>Pas envoyé</h2>
+    <label class="case"><input type="checkbox" name="abandonner" value="1"> <span>Abandonner ce concours</span></label>
+    <button class="bouton bouton-large">Je n'ai pas envoyé</button>
+  </form>
+</section>
+{% endblock %}

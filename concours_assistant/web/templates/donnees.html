@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import jeton_champ with context %}
+{% block titre %}Mes données{% endblock %}
+{% block contenu %}
+<div class="titre-page">
+  <h1>Mes données</h1>
+  <p class="discret">Stockées uniquement dans {{ cfg.dossier_donnees }}. Consentement : {% if actif %}<span class="pastille pastille-ok">donné</span>{% else %}<span class="pastille pastille-attention">non donné</span>{% endif %}</p>
+</div>
+<section class="grille-2">
+  <div class="carte pile">
+    <h2>Télécharger</h2>
+    <p class="discret">Toutes tes données (concours, journal, profil) dans un fichier JSON.</p>
+    <a class="bouton" href="{{ url_for('donnees_export') }}">Télécharger mes données</a>
+  </div>
+  <div class="carte pile">
+    <h2>Nettoyer</h2>
+    <p class="discret">Supprime ce qui a plus de {{ cfg.vie_privee.retention_jours }} jours et les captures orphelines.</p>
+    <form method="post" action="{{ url_for('donnees_purger') }}">{{ jeton_champ() }}<button class="bouton">Purger les anciennes données</button></form>
+  </div>
+</section>
+<section class="carte pile">
+  <h2>Consentement</h2>
+  {% if actif %}
+    <form method="post" action="{{ url_for('consentement_valider') }}" data-confirmer="Retirer ton consentement ? L'outil arrêtera de traiter tes données.">
+      {{ jeton_champ() }}<input type="hidden" name="decision" value="retirer"><button class="bouton">Retirer mon consentement</button>
+    </form>
+  {% else %}<a class="bouton bouton-principal" href="{{ url_for('consentement') }}">Lire et donner mon consentement</a>{% endif %}
+</section>
+<section class="carte pile">
+  <h2>Tout effacer</h2>
+  <p class="discret">Supprime définitivement la base, le journal et les preuves. Ton fichier de profil (config.toml) reste : supprime-le à la main si tu veux.</p>
+  <form method="post" action="{{ url_for('donnees_effacer') }}" class="pile" data-confirmer="Effacer définitivement toutes tes données ?">
+    {{ jeton_champ() }}
+    <label>Tape EFFACER pour confirmer<input type="text" name="confirmation" autocomplete="off"></label>
+    <button class="bouton bouton-danger">Tout effacer</button>
+  </form>
+</section>
+{% endblock %}

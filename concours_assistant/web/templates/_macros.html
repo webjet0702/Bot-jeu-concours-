@@ -1,0 +1,6 @@
+{% macro pastille_statut(statut) -%}
+{%- set lib = LIBELLES_STATUT.get(statut, (statut, 'neutre')) -%}
+<span class="pastille pastille-{{ lib[1] }}">{{ lib[0] }}</span>
+{%- endmacro %}
+
+{% macro jeton_champ() -%}<input type="hidden" name="jeton" value="{{ jeton }}">{%- endmacro %}

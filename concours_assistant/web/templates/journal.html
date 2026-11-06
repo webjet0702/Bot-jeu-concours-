@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block titre %}Journal{% endblock %}
+{% block contenu %}
+<div class="titre-page">
+  <h1>Journal</h1>
+  <p class="discret">Tout ce que l'outil a fait, y compris chaque arrêt sur CAPTCHA ou défi anti-robot. Les emails et téléphones sont masqués.</p>
+</div>
+<section class="carte defilement">
+  {% if evenements %}
+  <table class="table-simple">
+    <thead><tr><th>Quand</th><th>Événement</th><th>Concours</th><th>Site</th><th>Détails</th></tr></thead>
+    <tbody>
+    {% for e, details in evenements %}
+      <tr>
+        <td style="white-space:nowrap">{{ e.horodatage | heure }}</td>
+        <td><code>{{ e.type }}</code></td>
+        <td>{% if e.concours_id %}<a href="{{ url_for('concours', cid=e.concours_id) }}">#{{ e.concours_id }}</a>{% endif %}</td>
+        <td>{{ e.domaine or '' }}</td>
+        <td class="details">{% for k, v in details.items() %}<span><strong>{{ k }}</strong> : {{ v if v is string else (v | tojson) }}</span>{{ ' · ' if not loop.last }}{% endfor %}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}<p class="discret">Journal vide.</p>{% endif %}
+</section>
+{% endblock %}

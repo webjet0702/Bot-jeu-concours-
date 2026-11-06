@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import jeton_champ with context %}
+{% block titre %}Sites{% endblock %}
+{% block contenu %}
+<div class="titre-page">
+  <h1>Sites</h1>
+  <p class="discret">Les sites où le pré-remplissage est autorisé (par toi, après lecture de leurs conditions) et ceux bloqués après un défi anti-robot.</p>
+</div>
+<section class="carte">
+  {% if lignes %}
+  <div class="defilement"><table class="table-simple">
+    <thead><tr><th>Site</th><th>Pré-remplissage</th><th>Blocage</th><th>Justification</th><th></th></tr></thead>
+    <tbody>
+    {% for d, bloque in lignes %}
+      <tr>
+        <td><strong>{{ d.domaine }}</strong></td>
+        <td>{% if d.automatisation_autorisee %}<span class="pastille pastille-ok">autorisé</span>{% else %}<span class="pastille">manuel</span>{% endif %}</td>
+        <td>{% if bloque %}<span class="pastille pastille-danger">bloqué</span> <span class="discret petit">{{ bloque }}</span>{% else %}—{% endif %}</td>
+        <td class="details">{{ d.justification or '' }}</td>
+        <td class="boutons">
+          {% if bloque %}
+          <form method="post" action="{{ url_for('domaine_action', action='debloquer') }}">{{ jeton_champ() }}<input type="hidden" name="domaine" value="{{ d.domaine }}"><button class="bouton bouton-petit">Débloquer</button></form>
+          {% endif %}
+          {% if d.automatisation_autorisee %}
+          <form method="post" action="{{ url_for('domaine_action', action='retirer') }}">{{ jeton_champ() }}<input type="hidden" name="domaine" value="{{ d.domaine }}"><button class="bouton bouton-petit">Retirer</button></form>
+          {% endif %}
+        </td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table></div>
+  {% else %}<p class="discret">Aucun site pour l'instant.</p>{% endif %}
+</section>
+<details class="carte">
+  <summary>Autoriser le pré-remplissage sur un site</summary>
+  <p class="discret">Seulement si ses conditions d'utilisation ou le règlement du jeu <strong>autorisent</strong> l'aide automatisée à la saisie. La plupart l'interdisent : dans le doute, n'autorise pas.</p>
+  <form method="post" action="{{ url_for('domaine_action', action='autoriser') }}" class="pile">
+    {{ jeton_champ() }}
+    <label>Site<input type="text" name="domaine" required placeholder="exemple.fr"></label>
+    <label>Justification<input type="text" name="justification" required minlength="15" maxlength="300" placeholder="ex. CGU art. 7 : outils d'aide à la saisie autorisés"></label>
+    <button class="bouton">Autoriser</button>
+  </form>
+</details>
+{% endblock %}
