@@ -163,6 +163,62 @@ def test_enchainement_presente_les_prets_un_par_un(site):
     assert "Mode enchaînement" not in client.get(f"/concours/{moyen}/participer").get_data(as_text=True)
 
 
+def _alerte_google_brute(url_cible="https://www.marque.fr/jeu-concours-noel") -> str:
+    from email.message import EmailMessage
+    msg = EmailMessage()
+    msg["From"] = "Google Alerts <googlealerts-noreply@google.com>"
+    msg["To"] = "concours@example.org"
+    msg["Subject"] = "Alerte Google - \"jeu concours\""
+    msg.set_content("version texte")
+    msg.add_alternative(
+        f'<html><body><a href="https://www.google.com/url?rct=j&amp;sa=t&amp;url={url_cible}&amp;ct=ga">'
+        "Grand <b>jeu concours</b> de Noël : 500 € à gagner</a>"
+        '<a href="https://www.google.com/alerts/remove?source=alertsmail">Se désabonner</a>'
+        '<a href="https://www.google.com/alerts">Modifier cette alerte</a></body></html>', subtype="html")
+    return msg.as_string()
+
+
+def test_import_gmail_par_cle(site):
+    from concours_assistant.web import auth
+    _, client, _, cfg, _ = site
+    brut = _alerte_google_brute()
+    sans_session = client.application.test_client()  # le script Gmail n'a ni session ni jeton CSRF
+
+    # Pas de clé encore créée : tout est refusé.
+    assert sans_session.post("/api/importer", json={"emails": [brut]},
+                             headers={"Authorization": "Bearer x"}).status_code == 401
+    _consentir(client)
+    page = client.get("/aide/gmail").get_data(as_text=True)
+    d = _depot(cfg)
+    cle = d.lire_parametre(auth.CLE_IMPORT)
+    d.fermer()
+    assert cle and cle in page and "/api/importer" in page and "function installer()" in page
+
+    assert sans_session.post("/api/importer", json={"emails": [brut]}).status_code == 401
+    assert sans_session.post("/api/importer", json={"emails": [brut]},
+                             headers={"Authorization": "Bearer mauvaise"}).status_code == 401
+    assert sans_session.post("/api/importer", json={"emails": "pas une liste"},
+                             headers={"Authorization": f"Bearer {cle}"}).status_code == 400
+
+    r = sans_session.post("/api/importer", json={"emails": [brut, "pas un email"]},
+                          headers={"Authorization": f"Bearer {cle}"})
+    assert r.status_code == 200 and r.get_json()["nouveaux"] == 1
+    r = sans_session.post("/api/importer", json={"emails": [brut]}, headers={"Authorization": f"Bearer {cle}"})
+    assert r.get_json() == {"recus": 1, "nouveaux": 0, "doublons": 1, "illisibles": 0}
+
+    d = _depot(cfg)
+    rows = d.lister()
+    d.fermer()
+    assert [(row["url"], row["source"]) for row in rows] == [("https://www.marque.fr/jeu-concours-noel",
+                                                               "alerte_google")]
+    assert "script Gmail" in client.get("/").get_data(as_text=True)
+
+    # Nouvelle clé : l'ancienne ne marche plus.
+    client.post("/aide/gmail/nouvelle-cle", data={"jeton": JETON})
+    assert sans_session.post("/api/importer", json={"emails": [brut]},
+                             headers={"Authorization": f"Bearer {cle}"}).status_code == 401
+
+
 def test_checklist_bloque_gain_insuffisant(site):
     _, client, _, cfg, _ = site
     _consentir(client)
@@ -356,6 +412,31 @@ def test_en_ligne_robot_protege(site_en_ligne):
     assert client.get("/api/robot", headers={"Authorization": "Bearer faux"}).status_code == 401
     r = client.get("/api/robot", headers={"Authorization": "Bearer cron-de-test"})
     assert r.status_code == 200 and "consentement" in r.get_json()["lignes"][0]
+
+
+@en_ligne_seulement
+def test_en_ligne_import_gmail_sans_connexion_mais_avec_cle(site_en_ligne):
+    app, client = site_en_ligne
+    _installer(client)
+    client = _reconnecter(app)
+    _consentir(client)
+    import html
+    page = html.unescape(client.get("/aide/gmail").get_data(as_text=True))
+    assert "const SITE = 'https://localhost'" in page  # en ligne : toujours https
+    d = Depot(URL_PG_TEST)
+    cle = d.lire_parametre("cle_import")
+    d.fermer()
+    script_gmail = app.test_client()  # ni session, ni connexion, ni jeton CSRF : seulement la clé
+    assert script_gmail.get("/aide/gmail").status_code == 302  # la page qui montre la clé exige la connexion
+    r = script_gmail.post("/api/importer", json={"emails": [_alerte_google_brute()]},
+                          headers={"Authorization": f"Bearer {cle}"})
+    assert r.status_code == 200 and r.get_json()["nouveaux"] == 1
+    assert script_gmail.post("/api/importer", json={"emails": []},
+                             headers={"Authorization": "Bearer faux"}).status_code == 401
+    client.post("/donnees/effacer", data={"jeton": JETON, "confirmation": "EFFACER"})
+    d = Depot(URL_PG_TEST)
+    assert d.lire_parametre("cle_import") == cle  # « tout effacer » ne casse pas le script Gmail
+    d.fermer()
 
 
 @en_ligne_seulement

@@ -33,7 +33,7 @@ from flask import Flask, abort, flash, g, jsonify, redirect, render_template, re
 from .. import services
 from ..config import Config, ErreurConfig
 from ..conformite import checklist_avant_inscription
-from ..db import Depot
+from ..db import Depot, maintenant
 from ..environnement import SourceConfig, en_ligne, ouvrir_depot
 from ..journal import Journal
 from ..models import Mode, Statut
@@ -68,9 +68,12 @@ FILTRES = [
 PAGES_SANS_CONSENTEMENT = {"consentement", "consentement_valider", "static", "configuration",
                            "configuration_enregistrer", "donnees", "donnees_export", "donnees_purger",
                            "donnees_effacer", "connexion", "connexion_valider", "deconnexion",
-                           "mot_de_passe", "robot"}
-# Accessibles sans être connecté (version en ligne).
-PAGES_SANS_CONNEXION = {"connexion", "connexion_valider", "static", "robot"}
+                           "mot_de_passe", "robot", "importer"}
+# Accessibles sans être connecté (version en ligne). « robot » et « importer » ont leur propre clé.
+PAGES_SANS_CONNEXION = {"connexion", "connexion_valider", "static", "robot", "importer"}
+# Appelés par une machine (Vercel Cron, script Gmail) avec une clé dans l'en-tête Authorization, pas de jeton CSRF.
+APPELS_MACHINE = {"robot", "importer"}
+MAX_EMAILS_IMPORT = 20
 HOTES_LOCAUX = {"127.0.0.1", "localhost"}
 BUDGET_REQUETE_S = 25        # au-delà, on n'entame plus de nouveau concours (limite de durée des requêtes)
 LIMITE_PAR_RECHERCHE = 20    # concours analysés au maximum par recherche
@@ -195,7 +198,7 @@ def creer_app(chemin_config: Path | None) -> Flask:
             if hote not in HOTES_LOCAUX:
                 abort(403)
         attendu = jeton()
-        if request.method == "POST" and request.endpoint != "robot":
+        if request.method == "POST" and request.endpoint not in APPELS_MACHINE:
             recu = request.form.get("jeton") or request.headers.get("X-Jeton") or ""
             if not secrets.compare_digest(recu, attendu):
                 abort(400)
@@ -308,6 +311,8 @@ def creer_app(chemin_config: Path | None) -> Flask:
         nl = cfg.collecte.newsletter
         sources = (["Google Alertes"] if nl.active else []) + ([f"{len(cfg.collecte.flux)} flux RSS"]
                                                                if cfg.collecte.flux else []) + ["tes liens"]
+        if g.depot.lire_parametre(auth.DERNIER_IMPORT):
+            sources.insert(0, "Google Alertes via ton script Gmail")
         return render_template(
             "tableau.html", rows=g.depot.lister(statuts), compte=g.depot.compter_par_statut(), filtre=cle,
             filtres=FILTRES, sources=", ".join(sources), auto=request.args.get("analyser") == "1",
@@ -373,6 +378,37 @@ def creer_app(chemin_config: Path | None) -> Flask:
         resultat = _avec_verrou(travail)
         g.journal.evenement("robot_quotidien", lignes=len(resultat["lignes"]))
         return jsonify(resultat)
+
+    @app.post("/api/importer")
+    def importer():
+        """Le script Gmail (Apps Script, dans TON compte Google) dépose ici tes Google Alertes :
+        aucun mot de passe Gmail n'est stocké. La clé d'import ne permet que ce dépôt."""
+        if not auth.verifier_cle_import(g.depot, request.headers.get("Authorization", "")):
+            abort(401)
+        if not g.depot.consentement_actif(VERSION_CONSENTEMENT):
+            return jsonify({"erreur": "consentement requis"}), 403
+        emails = (request.get_json(silent=True) or {}).get("emails")
+        if not isinstance(emails, list) or len(emails) > MAX_EMAILS_IMPORT \
+                or not all(isinstance(e, str) for e in emails):
+            return jsonify({"erreur": f"format attendu : {{\"emails\": [...]}} ({MAX_EMAILS_IMPORT} au plus)"}), 400
+        nouveaux, doublons, illisibles = services.importer_emails(g.depot, g.journal, emails)
+        g.depot.ecrire_parametre(auth.DERNIER_IMPORT, maintenant())
+        return jsonify({"recus": len(emails), "nouveaux": nouveaux, "doublons": doublons, "illisibles": illisibles})
+
+    @app.get("/aide/gmail")
+    def aide_gmail():
+        site = f"https://{request.host}" if ligne else request.url_root.rstrip("/")
+        script = render_template("apps_script.gs", site=site, cle=auth.cle_import(g.depot))
+        return render_template("aide_gmail.html", script=script,
+                               dernier=g.depot.lire_parametre(auth.DERNIER_IMPORT))
+
+    @app.post("/aide/gmail/nouvelle-cle")
+    def aide_gmail_nouvelle_cle():
+        auth.nouvelle_cle_import(g.depot)
+        g.journal.evenement("cle_import_changee")
+        flash("Nouvelle clé créée : l'ancienne ne marche plus. Recopie le script ci-dessous dans Google Apps Script.",
+              "attention")
+        return redirect(url_for("aide_gmail"))
 
     @app.post("/ajouter")
     def ajouter():

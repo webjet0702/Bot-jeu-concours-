@@ -60,6 +60,29 @@ def cle_session(depot: Depot) -> str:
         depot.ecrire_parametre_si_absent(CLE_SESSION, secrets.token_urlsafe(48))
 
 
+CLE_IMPORT = "cle_import"
+DERNIER_IMPORT = "dernier_import"
+
+
+def cle_import(depot: Depot) -> str:
+    """Clé que présente le script Gmail (Apps Script) pour déposer des alertes. Elle ne permet QUE ça :
+    ni lire les données, ni se connecter au site. Affichée uniquement une fois connecté."""
+    return depot.ecrire_parametre_si_absent(CLE_IMPORT, secrets.token_urlsafe(32))
+
+
+def nouvelle_cle_import(depot: Depot) -> str:
+    cle = secrets.token_urlsafe(32)
+    depot.ecrire_parametre(CLE_IMPORT, cle)
+    return cle
+
+
+def verifier_cle_import(depot: Depot, entete_authorization: str) -> bool:
+    attendue = depot.lire_parametre(CLE_IMPORT)
+    if not attendue:
+        return False
+    return hmac.compare_digest(entete_authorization.encode("utf-8", "replace"), f"Bearer {attendue}".encode())
+
+
 def mot_de_passe_defini(depot: Depot) -> bool:
     return depot.lire_parametre(CLE_MOT_DE_PASSE) is not None
 

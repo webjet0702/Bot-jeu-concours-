@@ -6,11 +6,13 @@ vivent dans les modules appelés ici : le site n'a AUCUN chemin qui les contourn
 
 from __future__ import annotations
 
+import email
 import json
 import sqlite3
 import time
 from collections.abc import Callable
 from datetime import date
+from email.policy import default as politique_defaut
 
 from .analyse import AReporter, analyser, enregistrer_decision
 from .config import Config
@@ -22,7 +24,7 @@ from .journal import Journal
 from .models import ConcoursCandidat, Contexte, Decision, InfosExtraites, Mode, Statut
 from .prefill import ResultatParticipation
 from .sources.allowlist import lire_allowlist
-from .sources.newsletter import collecter_newsletters
+from .sources.newsletter import collecter_newsletters, liens_depuis_email
 from .sources.rss import collecter_flux
 from .urls import domaine
 
@@ -69,6 +71,27 @@ def collecter_tout(cfg: Config, depot: Depot, journal: Journal, mdp_imap: str | 
     journal.evenement("collecte", candidats=len(candidats), nouveaux=nouveaux, doublons=doublons)
     log(f"✓ {nouveaux} nouveau(x) concours, {doublons} doublon(s) ignoré(s)")
     return nouveaux, doublons
+
+
+def importer_emails(depot: Depot, journal: Journal, bruts: list[str]) -> tuple[int, int, int]:
+    """Emails bruts (RFC 822) déposés par le script Gmail de l'utilisateur (Apps Script, sans mot de passe).
+
+    Même extraction que la lecture IMAP : liens déballés, liens de gestion Google écartés, doublons ignorés.
+    Rien n'est visité ici : l'analyse (robots.txt, débit…) se fait ensuite comme pour les autres sources.
+    Renvoie (nouveaux, doublons, emails illisibles).
+    """
+    candidats: list[ConcoursCandidat] = []
+    illisibles = 0
+    for brut in bruts:
+        try:
+            candidats += liens_depuis_email(email.message_from_string(brut, policy=politique_defaut))
+        except Exception:  # email mal formé : on l'ignore, les autres passent
+            illisibles += 1
+    nouveaux = sum(1 for c in candidats if depot.ajouter_concours(c) is not None)
+    doublons = len(candidats) - nouveaux
+    journal.evenement("import_gmail", emails=len(bruts), candidats=len(candidats), nouveaux=nouveaux,
+                      doublons=doublons, illisibles=illisibles)
+    return nouveaux, doublons, illisibles
 
 
 def compter_en_attente(depot: Depot) -> int:

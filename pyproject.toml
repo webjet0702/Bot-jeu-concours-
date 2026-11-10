@@ -31,7 +31,7 @@ packages = ["concours_assistant", "concours_assistant.sources", "concours_assist
 
 [tool.setuptools.package-data]
 concours_assistant = ["schema.sql", "schema_pg.sql", "config_modele.toml"]
-"concours_assistant.web" = ["templates/*.html", "static/*"]
+"concours_assistant.web" = ["templates/*.html", "templates/*.gs", "static/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

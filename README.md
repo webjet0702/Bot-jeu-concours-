@@ -161,6 +161,17 @@ concours, et l'outil lit ces emails (IMAP, lecture seule).
    - PC, Windows (PowerShell) : `$env:CONCOURS_IMAP_MDP = "xxxx xxxx xxxx xxxx"`
    - PC, Mac / Linux : `export CONCOURS_IMAP_MDP="xxxx xxxx xxxx xxxx"`
 
+**Site en ligne, sans mot de passe (recommandé)** : Google refuse souvent la validation en deux
+étapes sur un compte récent. Dans ce cas, remplace les étapes 4 à 6 par la page
+**Mon profil → méthode sans mot de passe** (`/aide/gmail`) : elle te donne un petit script
+Google Apps Script, déjà rempli avec l'adresse de ton site et ta **clé d'import**. Tu le
+colles sur <https://script.new> depuis ton Gmail dédié, tu lances `installer` et tu
+autorises. Chaque jour vers 5 h, le script envoie au site les emails du libellé `Concours`
+(`POST /api/importer`, clé dans l'en-tête `Authorization`). Le site en extrait les liens
+exactement comme avec IMAP, puis le robot les analyse vers 7 h 15. Aucun mot de passe Gmail
+n'est stocké, et la clé d'import ne permet que ce dépôt : ni lire tes données, ni se
+connecter. Tu peux la changer à tout moment.
+
 Pourquoi pas les sites agrégateurs de concours ? Vérifié en novembre 2026 : Toutgagner,
 Jeu-concours.biz, Concours du Net et Gagnant.fr n'ont **pas de flux RSS**, et Jeu-concours.biz
 interdit ses pages de concours aux robots (robots.txt). Aspirer leurs pages irait contre leurs

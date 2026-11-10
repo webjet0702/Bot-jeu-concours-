@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% from "_macros.html" import jeton_champ with context %}
+{% block titre %}Google Alertes sans mot de passe{% endblock %}
+{% block contenu %}
+<p><a href="{{ url_for('configuration') }}">← Mon profil</a></p>
+<div class="titre-page">
+  <h1>Google Alertes sans mot de passe</h1>
+  <p class="discret">Un petit script tourne dans ton compte Google et envoie chaque matin tes alertes à ce site. Pas de validation en deux étapes, pas de mot de passe d'application.</p>
+</div>
+
+<div class="alerte {{ 'alerte-ok' if dernier else 'alerte-attention' }}">
+  {% if dernier %}Dernier envoi reçu du script : <strong>{{ dernier | heure }}</strong>.
+  {% else %}Le script n'a encore rien envoyé : suis les étapes ci-dessous.{% endif %}
+</div>
+
+<section class="carte">
+  <h2>Installation (5 minutes, une seule fois)</h2>
+  <ol class="etapes">
+    <li>Dans Chrome, ouvre le <strong>profil de ton Gmail dédié</strong> (pas la navigation privée).</li>
+    <li>Ouvre <a href="https://script.new" target="_blank" rel="noopener noreferrer"><strong>script.new</strong> ↗</a> : un projet Google Apps Script vide s'ouvre.</li>
+    <li>Efface tout le texte qui s'y trouve, puis colle le script (bouton <strong>Copier le script</strong> ci-dessous).</li>
+    <li>Enregistre avec <strong>Ctrl+S</strong> (ou l'icône disquette).</li>
+    <li>En haut, dans la liste des fonctions, choisis <strong>installer</strong>, puis clique <strong>▶ Exécuter</strong>.</li>
+    <li>Google demande l'autorisation : <strong>Examiner les autorisations</strong> → ton compte → <strong>Paramètres avancés</strong> → <strong>Accéder à Projet sans titre (non sécurisé)</strong> → <strong>Autoriser</strong>.
+      <br><span class="discret petit">Google affiche « non sécurisé » pour tout script qui n'a pas été publié : c'est le tien, tu peux lire son code ci-dessous. Il demande l'accès à Gmail parce que Google ne propose pas d'accès plus restreint pour ce type de script ; le code ne lit que le libellé « Concours » et ne modifie, n'envoie et ne supprime aucun email.</span></li>
+    <li>En bas, le journal d'exécution affiche « … email(s) envoyé(s) au site ». Recharge cette page : « Dernier envoi reçu » s'affiche.</li>
+  </ol>
+  <p class="discret petit">Ensuite, le script repart tout seul chaque jour vers 5 h, et le robot du site analyse les concours vers 7 h 15. Ne coche pas « Lire mes Google Alertes (IMAP) » dans ton profil : avec le script, ce n'est pas nécessaire.</p>
+</section>
+
+<section class="carte pile">
+  <h2>Le script</h2>
+  <p class="discret petit">Il contient l'adresse de ton site et ta <strong>clé d'import</strong> : elle permet seulement de déposer des alertes ici (ni lire tes données, ni te connecter). Ne la partage pas.</p>
+  <textarea class="code" rows="14" readonly spellcheck="false">{{ script }}</textarea>
+  <button type="button" class="bouton bouton-principal bouton-large" data-copier="{{ script }}">Copier le script</button>
+</section>
+
+<form method="post" action="{{ url_for('aide_gmail_nouvelle_cle') }}" class="carte pile" data-confirmer="L'ancien script ne marchera plus : il faudra recoller le nouveau dans Google Apps Script. Continuer ?">
+  {{ jeton_champ() }}
+  <h2>Clé compromise ?</h2>
+  <p class="discret petit">Si tu as partagé le script par erreur, crée une nouvelle clé puis recolle le script dans Apps Script.</p>
+  <button class="bouton">Créer une nouvelle clé</button>
+</form>
+{% endblock %}

@@ -209,6 +209,9 @@ details.carte[open] > summary { margin-bottom: 12px; }
 .donnee { display: flex; gap: 8px; align-items: center; margin-top: 6px; }
 .donnee code { flex: 1; min-width: 0; padding: 8px 10px; background: var(--surface-2); border-radius: 8px; overflow-wrap: anywhere; }
 
+textarea.code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12.5px;
+                line-height: 1.45; background: var(--surface-2); resize: vertical; white-space: pre; }
+
 /* Journal de tâche */
 .log { background: var(--surface-2); border-radius: 10px; padding: 12px; margin: 0; max-height: 320px; overflow: auto;
        white-space: pre-wrap; overflow-wrap: anywhere; }

@@ -96,6 +96,6 @@ def purger_anciens(depot: Depot, cfg: Config) -> dict[str, int]:
 def purger_tout(cfg: Config, depot: Depot | None = None) -> None:
     """Efface tout. En ligne : toutes les tables (sauf le mot de passe haché, pour pouvoir se reconnecter)."""
     if depot is not None and depot.pg:
-        depot.tout_effacer(garder_parametres=("mot_de_passe", "cle_session"))
+        depot.tout_effacer(garder_parametres=("mot_de_passe", "cle_session", "cle_import"))
     if cfg.dossier_donnees.exists():
         shutil.rmtree(cfg.dossier_donnees)

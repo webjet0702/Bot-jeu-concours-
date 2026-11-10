@@ -45,6 +45,7 @@
   <section class="carte pile">
     <h2>Google Alertes</h2>
     <p class="discret">Google surveille le web pour toi et t'envoie les nouveaux concours par email ; l'outil lit ces emails (lecture seule). Mode d'emploi : section « Surveiller tout le web avec Google Alertes » du README.</p>
+    {% if en_ligne %}<p class="alerte alerte-info">Google refuse la validation en deux étapes ou le mot de passe d'application ? Utilise la <a href="{{ url_for('aide_gmail') }}"><strong>méthode sans mot de passe</strong></a> (un petit script dans ton compte Google). Dans ce cas, laisse la case ci-dessous décochée.</p>{% endif %}
     <label class="case"><input type="checkbox" name="newsletter_active" value="1" {{ 'checked' if cfg.collecte.newsletter.active }}> <span>Lire mes Google Alertes et newsletters</span></label>
     <div class="champs-2">
       <label>Adresse Gmail<input type="email" name="newsletter_utilisateur" value="{{ cfg.collecte.newsletter.utilisateur }}"></label>
