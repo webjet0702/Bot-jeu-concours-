@@ -62,6 +62,7 @@ def cle_session(depot: Depot) -> str:
 
 CLE_IMPORT = "cle_import"
 DERNIER_IMPORT = "dernier_import"
+BILAN_IMPORT = "bilan_import"
 
 
 def cle_import(depot: Depot) -> str:

@@ -8,10 +8,22 @@
   <p class="discret">Un petit script tourne dans ton compte Google et envoie chaque matin tes alertes à ce site. Pas de validation en deux étapes, pas de mot de passe d'application.</p>
 </div>
 
-<div class="alerte {{ 'alerte-ok' if dernier else 'alerte-attention' }}">
-  {% if dernier %}Dernier envoi reçu du script : <strong>{{ dernier | heure }}</strong>.
-  {% else %}Le script n'a encore rien envoyé : suis les étapes ci-dessous.{% endif %}
+{% set vide = bilan is not none and bilan.emails == 0 %}
+<div class="alerte {{ 'alerte-attention' if (not dernier or vide) else 'alerte-ok' }}">
+  {% if dernier %}Dernier envoi reçu du script : <strong>{{ dernier | heure }}</strong>{% if bilan is not none %} · {{ bilan.emails }} email(s) d'alerte, {{ bilan.nouveaux }} nouveau(x) concours{% endif %}.
+  {% else %}Le site n'a encore rien reçu du script : suis les étapes ci-dessous (si tu as déjà installé une ancienne version, recolle le script ci-dessous et relance « installer »).{% endif %}
 </div>
+{% if vide %}
+<section class="carte">
+  <h2>Le script marche, mais ton libellé « Concours » est vide</h2>
+  <ol class="etapes">
+    <li>Regarde si tu as reçu des Google Alertes : <a href="https://mail.google.com/mail/u/0/#search/from%3Agooglealerts-noreply%40google.com" target="_blank" rel="noopener noreferrer">rechercher dans Gmail ↗</a>.</li>
+    <li><strong>Aucune ?</strong> Tes recherches sont trop précises : sur <a href="https://www.google.com/alerts" target="_blank" rel="noopener noreferrer">Google Alertes ↗</a>, garde celles dont l'aperçu montre des résultats récents, et ajoute des recherches plus larges.</li>
+    <li><strong>Des alertes, mais pas dans « Concours » ?</strong> Le filtre ne s'applique qu'aux nouveaux emails : sélectionne-les dans Gmail → icône libellé → « Concours ». Vérifie aussi le filtre dans <a href="https://mail.google.com/mail/u/0/#settings/filters" target="_blank" rel="noopener noreferrer">Paramètres → Filtres ↗</a>.</li>
+    <li>Puis, dans Apps Script, choisis <strong>envoyerAlertes</strong> → ▶ Exécuter.</li>
+  </ol>
+</section>
+{% endif %}
 
 <section class="carte">
   <h2>Installation (5 minutes, une seule fois)</h2>

@@ -212,6 +212,12 @@ def test_import_gmail_par_cle(site):
     assert [(row["url"], row["source"]) for row in rows] == [("https://www.marque.fr/jeu-concours-noel",
                                                                "alerte_google")]
     assert "script Gmail" in client.get("/").get_data(as_text=True)
+    assert "1 email(s) d'alerte" in client.get("/aide/gmail").get_data(as_text=True)
+
+    # Libellé vide : le script prévient quand même le site, qui explique quoi vérifier.
+    r = sans_session.post("/api/importer", json={"emails": []}, headers={"Authorization": f"Bearer {cle}"})
+    assert r.get_json()["recus"] == 0
+    assert "est vide" in client.get("/aide/gmail").get_data(as_text=True)
 
     # Nouvelle clé : l'ancienne ne marche plus.
     client.post("/aide/gmail/nouvelle-cle", data={"jeton": JETON})

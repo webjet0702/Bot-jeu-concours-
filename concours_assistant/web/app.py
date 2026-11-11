@@ -393,13 +393,18 @@ def creer_app(chemin_config: Path | None) -> Flask:
             return jsonify({"erreur": f"format attendu : {{\"emails\": [...]}} ({MAX_EMAILS_IMPORT} au plus)"}), 400
         nouveaux, doublons, illisibles = services.importer_emails(g.depot, g.journal, emails)
         g.depot.ecrire_parametre(auth.DERNIER_IMPORT, maintenant())
+        g.depot.ecrire_parametre(auth.BILAN_IMPORT, json.dumps({"emails": len(emails), "nouveaux": nouveaux}))
         return jsonify({"recus": len(emails), "nouveaux": nouveaux, "doublons": doublons, "illisibles": illisibles})
 
     @app.get("/aide/gmail")
     def aide_gmail():
         site = f"https://{request.host}" if ligne else request.url_root.rstrip("/")
         script = render_template("apps_script.gs", site=site, cle=auth.cle_import(g.depot))
-        return render_template("aide_gmail.html", script=script,
+        try:
+            bilan = json.loads(g.depot.lire_parametre(auth.BILAN_IMPORT) or "null")
+        except ValueError:
+            bilan = None
+        return render_template("aide_gmail.html", script=script, bilan=bilan,
                                dernier=g.depot.lire_parametre(auth.DERNIER_IMPORT))
 
     @app.post("/aide/gmail/nouvelle-cle")
